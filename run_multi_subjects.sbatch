@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=rw-msubs
-#SBATCH --output=output0-180.slurm
-#SBATCH -a 0-180
+#SBATCH --output=output_test.slurm
+#SBATCH -a 1
 #SBATCH --nodes=1
 #SBATCH --mem-per-cpu=32GB
 #SBATCH --cpus-per-task=2
@@ -18,7 +18,8 @@ source activate autolabel
 
 export HCP_CREDENTIALS="`cat ~/.hcp-passwd`"
 
-python randomwalk.py --sub $SLURM_ARRAY_TASK_ID --hemi lh
-python randomwalk.py --sub $SLURM_ARRAY_TASK_ID --hemi rh
+#python random_walk.py --sub $SLURM_ARRAY_TASK_ID --hemi lh
+#python random_walk.py --sub $SLURM_ARRAY_TASK_ID --hemi rh
 
-cat<<EOF
+python multiprocess_labeling.py --sub $SLURM_ARRAY_TASK_ID --hemi lh
+python multiprocess_labeling.py --sub $SLURM_ARRAY_TASK_ID --hemi rh

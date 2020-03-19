@@ -1,7 +1,6 @@
-import argparse
 # Import some standard/utility libraries:
 import os, sys, time, h5py, zipfile
-import six          # six provides python 2/3 compatibility
+import six  # six provides python 2/3 compatibility
 
 # Import our numerical/scientific libraries, scipy and numpy:
 import numpy as np
@@ -25,11 +24,9 @@ import ipyvolume as ipv
 
 import random
 from numba import jit
-#import multiprocessing
-import pathos.multiprocessing as multiprocessing
+#import pathos.multiprocessing as multiprocessing
 
 import pickle
-import logging
 from datetime import datetime
 
 def set_up():
@@ -62,19 +59,9 @@ def set_up():
                         'This probably indicates that your credentials are wrong'
                         ' or that you do not have an internet connection.')
 
-    logging.info('Configuration appears fine!')
-
-def config(parser):
-    parser.add_argument('--sub', default=0, type=int)
-    parser.add_argument('--hemi', default='lh', type=str)
-    return parser
-
-parser = argparse.ArgumentParser()
-parser = config(parser)
-args = parser.parse_args()
 
 def autolabel_initializition(sid, h, max_eccen):
-    #get the subject
+    # get the subject
     sub = ny.hcp_subject(sid)
     # We will use one of the subject's hemisphere's (eigher lh or rh).
     # Get this hemisphere object from the subject object.
@@ -85,12 +72,12 @@ def autolabel_initializition(sid, h, max_eccen):
 
     # The Tesselation object fmap.tess stores both the faces in the triangle-
     # # mesh and the edges in the equivalent graph; we extract them.
-#     (a,b,c) = F = fmap.tess.indexed_faces
-#     (u,v) = E = fmap.tess.indexed_edges
-#     V = fmap.tess.indices
-#     n = fmap.tess.vertex_count
-#     m = fmap.tess.face_count
-#     p = fmap.tess.edge_count
+    #     (a,b,c) = F = fmap.tess.indexed_faces
+    #     (u,v) = E = fmap.tess.indexed_edges
+    #     V = fmap.tess.indices
+    #     n = fmap.tess.vertex_count
+    #     m = fmap.tess.face_count
+    #     p = fmap.tess.edge_count
     # # Notes:
     #  - In the above, the reason that we use fmap.tess.indexed_edges and faces
     #    instead of fmap.tess.edges and faces is that the indexed edges treat
@@ -106,10 +93,10 @@ def autolabel_initializition(sid, h, max_eccen):
     # We also want to extract the visual-field coordinates. These coordinates
     # are encoded on the fmap as the properties 'prf_polar_angle' and
     # 'prf_eccentricity', which we can extract using neuropythy:
-    rdat  = ny.retinotopy_data(fmap, 'prf_')
+    rdat = ny.retinotopy_data(fmap, 'prf_')
     # Convert the retinotopy data to (x,y) coordinates.
-    (x,y) = ny.as_retinotopy(rdat, 'geographical')
-    xy = np.transpose([x,y]).astype('float32')
+    (x, y) = ny.as_retinotopy(rdat, 'geographical')
+    xy = np.transpose([x, y]).astype('float32')
     # Notes:
     #  - x and y are vectors of length n; one coordinate per vertex.
     #  - rdat is a dict of similar vectors for the pRF properties.
@@ -120,12 +107,12 @@ def autolabel_initializition(sid, h, max_eccen):
     #    for optimization).
 
     # We will also want the eccentricity of the vertices for convenience.
-    eccen = np.sqrt(x**2 + y**2)
+    eccen = np.sqrt(x ** 2 + y ** 2)
     # We will want to look at the angle as well.
     angle = np.arctan2(y, x)
     # We typically store polar angle as degrees of clockwise rotation
     # starting at the positive y-axis.
-    angle = 90 - 180/np.pi * angle
+    angle = 90 - 180 / np.pi * angle
     angle = np.mod(angle + 180, 360) - 180
 
     # We might also want to know how confident we are in the pRF measurements;
@@ -133,7 +120,7 @@ def autolabel_initializition(sid, h, max_eccen):
     # value of 0 indicates a very poor fit while a value of 1 indicates a very
     # good fit. Keep in mind that this is a correlate of our confidence in the
     # (x,y) predictions, not a measure of confidence in those values precisely.
-#     cod = rdat['variance_explained']
+    #     cod = rdat['variance_explained']
 
     pred = ny.vision.predict_retinotopy(hemi)
 
@@ -147,17 +134,17 @@ def autolabel_initializition(sid, h, max_eccen):
                                 for prop in (angle0, eccen0, label0)]
 
     # Convert to x and y.
-#     th0 = np.pi/180 * (90 - angle0)
-#     x0 = eccen0 * np.cos(th0)
-#     y0 = eccen0 * np.sin(th0)
-#     xy0 = np.transpose([x0,y0])
+    #     th0 = np.pi/180 * (90 - angle0)
+    #     x0 = eccen0 * np.cos(th0)
+    #     y0 = eccen0 * np.sin(th0)
+    #     xy0 = np.transpose([x0,y0])
     # Good to convert to float32 also.
-#     (th0,x0,y0,xy0) = [q.astype('float32') for q in (th0,x0,y0,xy0)]
+    #     (th0,x0,y0,xy0) = [q.astype('float32') for q in (th0,x0,y0,xy0)]
 
     # We should limit the initial label predictions to the max_eccen.
     label0[eccen0 > max_eccen] = 0
     # We also want only V1, V2, and V3 labels (as well as blanks, 0).
-    label0[~np.isin(label0, [0,1,2,3])] = 0
+    label0[~np.isin(label0, [0, 1, 2, 3])] = 0
 
     return xy, label0, fmap, eccen, angle
 
@@ -500,15 +487,17 @@ def autolabel_anneal(tess, labels, xys, nsteps=250000,
     labels[:] = min_labels
     return min_score
 
-# We define this function for the annealing processes to run:
-def anneal_job(boundary_weight):
-    labels = np.array(min_label)
-    score = autolabel_anneal(tess=fmap, labels=labels, xys=logxy, nsteps=nsteps,
-                             annealing_speed=annealing_speed,
-                             max_best_of=max_best_of, maxecc=logmaxecc,
-                             boundary_weight=boundary_weight,
-                             pair_weight=pair_weight)
-    return (score, labels)
+
+# # We define this function for the annealing processes to run:
+# def anneal_job(boundary_weight):
+#     labels = np.array(min_label)
+#     score = autolabel_anneal(tess=fmap, labels=labels, xys=logxy, nsteps=nsteps,
+#                              annealing_speed=annealing_speed,
+#                              max_best_of=max_best_of, maxecc=logmaxecc,
+#                              boundary_weight=boundary_weight,
+#                              pair_weight=pair_weight)
+#     return (score, labels)
+
 
 def visualization(u, v, fmap, label, logxy, logmaxecc, angle, eccen, sid, h):
     # Plot the result of the above steps:
@@ -516,31 +505,30 @@ def visualization(u, v, fmap, label, logxy, logmaxecc, angle, eccen, sid, h):
     boundary_u = u[boundary]
     boundary_v = v[boundary]
     boundary_lbl = [tuple(sorted([label[uu], label[vv]]))
-                    for (uu,vv) in zip(boundary_u, boundary_v)]
-    boundary_coords = np.mean([fmap.coordinates[:,boundary_u],
-                               fmap.coordinates[:,boundary_v]],
+                    for (uu, vv) in zip(boundary_u, boundary_v)]
+    boundary_coords = np.mean([fmap.coordinates[:, boundary_u],
+                               fmap.coordinates[:, boundary_v]],
                               axis=0)
 
     # Setup the matplotlib/pyplot figure.
-    (fig,axs) = plt.subplots(1,2, figsize=(5.5,5.5/2), dpi=144)
-    fig.subplots_adjust(0,0,1,1,0,0)
+    (fig, axs) = plt.subplots(1, 2, figsize=(5.5, 5.5 / 2), dpi=144)
+    fig.subplots_adjust(0, 0, 1, 1, 0, 0)
 
     ny.cortex_plot(fmap, underlay=None, color=angle, axes=axs[0],
                    cmap='polar_angle', vmin=-180, vmax=180)
     ny.cortex_plot(fmap, underlay=None, color=eccen, axes=axs[1],
                    cmap='eccentricity', vmin=0, vmax=90)
 
-    for (ax,name) in zip(axs, ['angle','eccen']):
+    for (ax, name) in zip(axs, ['angle', 'eccen']):
         ax.axis('equal')
         ax.axis('off')
         ax.set_title(name)
         # color the points by their pairwise scores
         clrs = [score_pair(label[uu], label[vv], logxy[uu], logxy[vv], logmaxecc)
-                for (uu,vv) in zip(boundary_u, boundary_v)]
+                for (uu, vv) in zip(boundary_u, boundary_v)]
         ax.scatter(boundary_coords[0], boundary_coords[1],
                    c=clrs, s=0.5, cmap='gray')
-    plt.savefig('results/fig/'+str(sid)+'_'+str(h)+'.png')
-
+    plt.savefig('results/fig/' + str(sid) + '_' + str(h) + '.png')
 
 
 # In order to compare the true labels with the predicted labels, we need
@@ -570,109 +558,3 @@ def dice_score(true_labels, pred_labels, visual_areas=[1, 2, 3]):
     true_labels = true_labels[ii]
     pred_labels = pred_labels[ii]
     return np.sum(true_labels == pred_labels) / len(ii)
-
-
-    
-if __name__ == '__main__':
-    sids = ny.data['hcp_retinotopy'].subject_ids
-    sid = sids[args.sub]
-    h = args.hemi
-    #logger
-    logging.basicConfig(filename='results/log/autolabel_'+str(sid)+'_'+str(h)+'_'+str(datetime.now())+'.log', level=logging.INFO)
-    logging.info('Lauching the randomwalk model for sub {0} -- hemi {1}'.format(str(sid), str(h)))
-    set_up()
-
-    # The number of annealing jobs/cpus to use.
-    nprocs = multiprocessing.cpu_count()
-    # The number of simulated-annealing rounds to run.
-    nrounds = 4
-    # The number of steps in each round.
-    nsteps = 40000
-    # The annealing speed.
-    annealing_speed = 4
-    # The max best_of value.
-    max_best_of = 1
-    # The boundary is ramped up over the annealing rounds to this value.
-    max_boundary_weight = 0.5
-    # The max eccentricity.
-    # In the HCP retinotopy experiment, the stimulus was 16° wide (so 8° of
-    # eccentricity, maximum); we will treat 7° of eccentricity as the max
-    # we want to include because there are edge-effects approaching the 8°
-    # point.
-    maxecc = 7.0
-    # We keep the pair_weight as 1 at all times
-    pair_weight = 1
-
-    # We are going to run a number of parallel annealing rounds.
-    xy, label0, fmap, eccen, angle = autolabel_initializition(sid, h, maxecc)
-    # Before we start, we want to convert xy to be on a log-scale; this is
-    # because eccentricity is exponentially-spaced in the visual field
-    # relative to its spacing on cortex, so this generally improves the
-    # ability of the minimizations to deal with low-eccentricity values.
-    logxy = ny.to_logeccen(xy)
-    logmaxecc = ny.to_logeccen(maxecc)
-
-    # We will keep track of the minimum label configuration we've found as we go.
-    (u, v) = fmap.tess.indexed_edges
-    min_score = score_labels(u, v, label0, logxy, maxecc=logmaxecc,
-                             boundary_weight=0, pair_weight=pair_weight)
-    init_score = min_score
-    min_label = np.array(label0)
-
-    ## simulated annealing
-
-    t0 = time.time()
-    for roundno in range(nrounds):
-        # Recalculate the boundary weight for this annealing round.
-        boundary_weight = roundno * max_boundary_weight / (nrounds-1)
-        # because we've changed the boundary_weight, we need to recalculate the min score
-        min_score = score_labels(u, v, min_label, logxy, maxecc=logmaxecc,
-                                 boundary_weight=boundary_weight,
-                                 pair_weight=pair_weight)
-        score0 = min_score
-        # Print a progress message.
-        logging.info('Running parallel-annealing round {} (initial score: {})...'.format(roundno+1, min_score))
-        # In parallel, we do the simulated annealing
-        with multiprocessing.Pool(nprocs) as pool:
-            results = pool.map(anneal_job, [boundary_weight]*nprocs)
-        # Of the results, which did the best?
-        for (score,labels) in results:
-            if score >= min_score: continue
-            min_score = score
-            min_label[:] = labels
-        logging.info('  {} annealing jobs finished with score change of {}'.format(
-            nprocs, (min_score - score0) / score0 * 100))
-
-    t1 = time.time()
-
-    # Print a message about elapsed time.
-    dt = t1 - t0
-    m = int((dt - np.mod(dt, 60)) / 60)
-    s = dt - 60*m
-    nstepstot = (nprocs * nsteps * nrounds) * 1000
-    msperstep = dt / nstepstot
-    logging.info('{} steps taken in {}m, {}s ({} ms / step).'.format(nstepstot, m, s, msperstep))
-    dscore = min_score - init_score
-    logging.info('Score Change: {} ({} per second; {} per step).'.format(dscore, dscore/dt, dscore/nstepstot))
-    
-    visualization(u, v, fmap, min_label, logxy, logmaxecc, angle, eccen, sid, h)
-    predict_label=min_label
-    
-    # Load in the ground-truth for just the LH of the subject we've been using in
-    # the minimizations above
-    # (sid is the subject ID and h is the hemisphere ('lh' or 'rh'))
-    true_path = os.path.join(os.getcwd()+'/visual_area_labels', '%s.%d_varea.mgz' % (h, sid))
-    logging.info('Saving the results...')
-    if os.path.isfile(true_path):
-        true_labels = ny.load(true_path)
-        true_labels = true_labels[fmap.labels]
-        dice_score = dice_score(true_labels, predict_label)
-        logging.info('Dice score of prediction and the ground truth is {}.'.format(dice_score))
-    else:
-        logging.info("True labels don't exist!")
-        dice_score = None
-    with open('results/label/'+str(sid)+'_'+str(h)+'.pickle', 'wb') as f:
-        pickle.dump({'predict_label': predict_label, 'dice_score': dice_score}, f)
-    logging.info('Done.')
-
-
