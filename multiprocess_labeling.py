@@ -3,7 +3,6 @@ import argparse
 import logging
 from module_randomwalk import *
 
-
 # TASK: Predict labels for all subjects/hemispheres.
 
 # We define this function for the annealing processes to run:
@@ -19,6 +18,7 @@ def anneal_job(boundary_weight):
 def config(parser):
     parser.add_argument('--sub', default=0, type=int)
     parser.add_argument('--hemi', default='lh', type=str)
+    parser.add_argument('--scorefunc_type', default='0', type=int)
     return parser
 
 parser = argparse.ArgumentParser()
@@ -29,11 +29,15 @@ if __name__ == '__main__':
 
     sids = ny.data['hcp_retinotopy'].subject_ids
     sid = sids[args.sub]
+    global h
+    global scorefunc_type
     h = args.hemi
+    scorefunc_type = args.scorefunc_type
     # logger
     logging.basicConfig(
-        filename='results/log/autolabel_' + str(sid) + '_' + str(h) + '_' + str(datetime.now()) + '.log',
+        filename= 'results/log/autolabel_' + str(sid) + '_' + str(h) + '_' + str(datetime.now()) + '.log',
         level=logging.INFO)
+    print("i will save")
     logging.info('Lauching the randomwalk model for sub {0} -- hemi {1}'.format(str(sid), str(h)))
     set_up()
     logging.info('Configuration appears fine!')

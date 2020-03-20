@@ -23,11 +23,16 @@ import matplotlib.pyplot as plt
 import ipyvolume as ipv
 
 import random
-from numba import jit
+from numba import jit, jitclass
+from numba import float32, int64
+import math
 #import pathos.multiprocessing as multiprocessing
 
 import pickle
 from datetime import datetime
+
+scorefunc_type = 0
+h = 'lh'
 
 def set_up():
     # Additional matplotlib preferences:
@@ -150,35 +155,90 @@ def autolabel_initializition(sid, h, max_eccen):
 
 
 ## the score function
+spec1 = [('xy1', float32[:]), ('xy2', float32[:]), ('maxecc', float32),]
 
-@jit('float32(float32[:], float32[:])')
-def score_xdist(xy1, xy2):
-    '''
-    score_xdist(xy1, xy2) yields the score value for a pair of vetices that straddle
-      a boundary known to correspond to the x-axis, such as the V2-V3 boundary.
-    '''
-    return xy1[1] ** 2 + xy2[1] ** 2
+class scorefunc(object):
 
+    def __init__(self, xy1, xy2, maxecc):
+        self.xy1 = xy1
+        self.xy2 = xy2
+        self.maxecc = maxecc
 
-@jit('float32(float32[:], float32[:])')
-def score_ydist(xy1, xy2):
-    '''
-    score_ydist(xy1, xy2) yields the score value for a pair of vetices that straddle
-      a boundary known to correspond to the y-axis, such as the V1-V2 boundary.
-    '''
-    return xy1[0] ** 2 + xy2[0] ** 2
+    def score_xdist(self):
+        pass
 
+    def score_ydist(self):
+        pass
 
-@jit('float32(float32[:], float32[:], float32)')
-def score_eccdist(xy1, xy2, maxecc):
-    '''
-    score_eccdist(xy1, xy2, maxecc) yields the score value for a pair of vetices
-      that straddle a boundary known to correspond to the max-eccentricity (or
-      outer stimulus boundary) such as the V1-, V2-, and V3-peripheral boundaries.
-    '''
-    ecc1 = np.sqrt(xy1[0] ** 2 + xy1[1] ** 2)
-    ecc2 = np.sqrt(xy2[0] ** 2 + xy2[1] ** 2)
-    return ((ecc1 - maxecc) ** 2 + (ecc2 - maxecc) ** 2)
+    def score_eccdist(self):
+        pass
+
+@jitclass(spec1)
+class scorefunc_Quadratic(scorefunc):
+    __init__scorefunc = scorefunc.__init__
+
+    def __init__(self, xy1, xy2, maxecc):
+        #scorefunc.__init__(self, xy1, xy2, maxecc)
+        self.__init__scorefunc(xy1, xy2, maxecc)
+
+    def score_xdist(self):
+        '''
+        score_xdist(xy1, xy2) yields the score value for a pair of vetices that straddle
+          a boundary known to correspond to the x-axis, such as the V2-V3 boundary.
+        '''
+        return self.xy1[1] ** 2 + self.xy2[1] ** 2
+
+    def score_ydist(self):
+        '''
+        score_ydist(xy1, xy2) yields the score value for a pair of vetices that straddle
+          a boundary known to correspond to the y-axis, such as the V1-V2 boundary.
+        '''
+        return self.xy1[0] ** 2 + self.xy2[0] ** 2
+
+    def score_eccdist(self):
+        '''
+        score_eccdist(xy1, xy2, maxecc) yields the score value for a pair of vetices
+          that straddle a boundary known to correspond to the max-eccentricity (or
+          outer stimulus boundary) such as the V1-, V2-, and V3-peripheral boundaries.
+        '''
+        ecc1 = np.sqrt(self.xy1[0] ** 2 + self.xy1[1] ** 2)
+        ecc2 = np.sqrt(self.xy2[0] ** 2 + self.xy2[1] ** 2)
+        return ((ecc1 - self.maxecc) ** 2 + (ecc2 - self.maxecc) ** 2)
+
+spec2 = [('h', int64)]
+
+@jitclass(spec1+spec2)
+class scorefunc_Absolute(scorefunc):
+    __init__scorefunc = scorefunc.__init__
+
+    def __init__(self, xy1, xy2, maxecc, h):
+        self.__init__scorefunc(xy1, xy2, maxecc)
+        self.hemi = h
+
+    def score_xdist(self):
+        '''
+        score_xdist(xy1, xy2) yields the score value for a pair of vetices that straddle
+          a boundary known to correspond to the x-axis, such as the V2-V3 boundary.
+        '''
+        return (abs(self.xy1[1])*self.xy1[1] + abs(self.xy2[1]) * self.xy2[1])*self.hemi
+
+    def score_ydist(self):
+        '''
+        score_ydist(xy1, xy2) yields the score value for a pair of vetices that straddle
+          a boundary known to correspond to the y-axis, such as the V1-V2 boundary.
+        '''
+        return (abs(self.xy1[0])*self.xy1[0] + abs(self.xy2[0]) * self.xy2[0])*self.hemi
+
+    def score_eccdist(self):
+        '''
+        score_eccdist(xy1, xy2, maxecc) yields the score value for a pair of vetices
+          that straddle a boundary known to correspond to the max-eccentricity (or
+          outer stimulus boundary) such as the V1-, V2-, and V3-peripheral boundaries.
+        '''
+
+        ecc1 = np.sqrt(self.xy1[0] ** 2 + self.xy1[1] ** 2)-self.maxecc
+        ecc2 = np.sqrt(self.xy2[0] ** 2 + self.xy2[1] ** 2)-self.maxecc
+        return (abs(ecc1) * ecc1 + abs(ecc2) * ecc2)*self.hemi
 
 
 @jit('float32(int64, int64, float32[:], float32[:], float32)', nopython=True)
@@ -187,27 +247,34 @@ def score_pair(lbl1, lbl2, xy1, xy2, maxecc):
     score_pair(lbl1, lbl2, xy1, xy2, maxecc) yields the score of an edge whose
       endpoints have lbl1 and lbl2 and are at visual (x,y) coordinates xy1 and xy2.
     '''
+    if scorefunc_type == 0:
+        sf = scorefunc_Quadratic(xy1, xy2, maxecc)
+    else:
+        if h == 'lh':
+            hemi = 1
+        elif h == 'rh':
+            hemi = -1
+        sf = scorefunc_Quadratic(xy1, xy2, maxecc, hemi)
     # There's no score for labels that are the same.
     if lbl1 == lbl2: return 0
     # To make things easier, make sure lbl1 <= lbl2.
     if lbl2 < lbl1: (lbl1, lbl2, xy1, xy2) = (lbl2, lbl1, xy2, xy1)
     if lbl1 == 0:
         if lbl2 == 1:
-            return score_eccdist(xy1, xy2, maxecc)
+            return sf.score_eccdist()
         elif lbl2 == 2:
-            return score_eccdist(xy1, xy2, maxecc)
+            return sf.score_eccdist()
         else:
-            s1 = score_eccdist(xy1, xy2, maxecc)
-            s2 = score_ydist(xy1, xy2)
+            s1 = sf.score_eccdist()
+            s2 = sf.score_ydist()
             return s1 if s1 < s2 else s2
     elif lbl1 == 1:
         if lbl2 == 2:
-            return score_ydist(xy1, xy2)
+            return sf.score_ydist()
         else:
             return np.inf  # V1 and V3 should not touch
     else:
-        return score_xdist(xy1, xy2)  # V2-V3
-
+        return sf.score_xdist()  # V2-V3
 
 @jit('Tuple((float32, int64))(int64[:], int64[:], float32[:,:], int64, int64, float32)')
 def score_pair_change(nei, lbl, xy, a, newlbl, maxecc):
