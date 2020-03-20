@@ -625,3 +625,42 @@ def dice_score(true_labels, pred_labels, visual_areas=[1, 2, 3]):
     true_labels = true_labels[ii]
     pred_labels = pred_labels[ii]
     return np.sum(true_labels == pred_labels) / len(ii)
+
+
+def label_prob_per_vertex(sid, h):
+    '''
+    calculate the probability that a particular vertex is in V1, V2, or V3 (has label 1, 2, or 3)
+    '''
+    #for all subjects
+    sub = ny.hcp_subject(sid)
+    hemi = sub.hemis[h]
+    fsa = ny.freesurfer_subject('fsaverage')
+    fshm = fsa.hemis[h]
+    hemi.interpolate(labels, fshm, method='nearest')
+    #Once we have all the labels on a common set of vertices (fsaverage),
+    # we can calculate the probability of a vertex being in V1, V2, or V3
+
+def prior_label_prob_fsa():
+
+    # Align all subjects' labels into fsaverage
+    import pandas as pd
+    sids = ny.data['hcp_retinotopy'].subject_ids
+    fsa = ny.freesurfer_subject('fsaverage')
+    for h in ['lh', 'rh']:
+        fshm = fsa.hemis[h]
+        df_fsa = pd.DataFrame([], columns=range(len(fshm.labels)))
+        for sid in sids:
+            sub = ny.hcp_subject(sid)
+            path = os.path.join('visual_area_labels', '%s.%d_varea.mgz' % (h, sid))
+            if not os.path.isfile(path):
+                continue
+            else:
+                hemi = sub.hemis[h]
+                labels = ny.load(path)
+                labels_interpolated = hemi.interpolate(fshm, labels, method='nearest')
+                df_fsa = df_fsa.append([labels_interpolated])
+                # Calculate the probability that a particular vertex is in V1, V2, or V3 (has label 1, 2, or 3)
+                df_count = df_fsa.apply(pd.value_counts)
+                label_prob_fsa = df_count/len(df_fsa)
+                label_prob_fsa = label_prob_fsa.fillna(0)
+                label_prob_fsa.to_csv(str(h) + '_label_prob_fsa.csv', header=False)
