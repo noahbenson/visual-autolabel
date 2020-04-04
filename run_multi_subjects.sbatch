@@ -2,7 +2,8 @@
 
 #SBATCH --job-name=rw-msubs
 #SBATCH --output=output_test.slurm
-#SBATCH -a 0-180
+##SBATCH -a 0-180
+#SBATCH -a 0-90
 #SBATCH --nodes=1
 #SBATCH --mem-per-cpu=32GB
 #SBATCH --cpus-per-task=2
@@ -18,5 +19,7 @@ source activate autolabel
 
 export HCP_CREDENTIALS="`cat ~/.hcp-passwd`"
 
-python multiprocess_labeling.py --sub $SLURM_ARRAY_TASK_ID --hemi lh --scorefunc_type 0
-python multiprocess_labeling.py --sub $SLURM_ARRAY_TASK_ID --hemi rh --scorefunc_type 0
+##python multiprocess_labeling.py --sub $SLURM_ARRAY_TASK_ID --hemi lh --scorefunc_type 0
+##python multiprocess_labeling.py --sub $SLURM_ARRAY_TASK_ID --hemi rh --scorefunc_type 0
+python starting_guess.py --sub $SLURM_ARRAY_TASK_ID --hemi lh --scorefunc_type 0
+python starting_guess.py --sub $SLURM_ARRAY_TASK_ID --hemi rh --scorefunc_type 0

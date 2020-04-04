@@ -27,7 +27,8 @@ args = parser.parse_args()
 
 if __name__ == '__main__':
 
-    sids = ny.data['hcp_retinotopy'].subject_ids
+    #sids = ny.data['hcp_retinotopy'].subject_ids
+    sids = [100610, 128935, 111312, 115017, 102311, 104416, 108323, 111514, 105923, 134829, 156334, 165436]
     sid = sids[args.sub]
     global h
     global scorefunc_type
@@ -37,7 +38,6 @@ if __name__ == '__main__':
     logging.basicConfig(
         filename= 'results/log/autolabel_' + str(sid) + '_' + str(h) + '_' + str(datetime.now()) + '.log',
         level=logging.INFO)
-    print("i will save")
     logging.info('Lauching the randomwalk model for sub {0} -- hemi {1}'.format(str(sid), str(h)))
     set_up()
     logging.info('Configuration appears fine!')
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # The max best_of value.
     max_best_of = 1
     # The boundary is ramped up over the annealing rounds to this value.
-    max_boundary_weight = 0.5
+    max_boundary_weight = 0.05
     # The max eccentricity.
     # In the HCP retinotopy experiment, the stimulus was 16° wide (so 8° of
     # eccentricity, maximum); we will treat 7° of eccentricity as the max
@@ -64,7 +64,8 @@ if __name__ == '__main__':
     pair_weight = 1
 
     # We are going to run a number of parallel annealing rounds.
-    xy, label0, fmap, eccen, angle = autolabel_initializition(sid, h, maxecc)
+    xy, fmap, angle, eccen, hemi = autolabel_initializition(sid, h)
+    label0 = starting_guess(hemi, fmap, h, maxecc, sid_sg=None)
     # Before we start, we want to convert xy to be on a log-scale; this is
     # because eccentricity is exponentially-spaced in the visual field
     # relative to its spacing on cortex, so this generally improves the
@@ -115,7 +116,7 @@ if __name__ == '__main__':
     dscore = min_score - init_score
     logging.info('Score Change: {} ({} per second; {} per step).'.format(dscore, dscore / dt, dscore / nstepstot))
 
-    visualization(u, v, fmap, min_label, logxy, logmaxecc, angle, eccen, sid, h)
+    visualization(u, v, fmap, min_label, logxy, logmaxecc, angle, eccen, sid, h, sid_sg)
     predict_label = min_label
 
     # Load in the ground-truth for just the LH of the subject we've been using in
@@ -131,5 +132,5 @@ if __name__ == '__main__':
     else:
         logging.info("True labels don't exist!")
         dice_score = None
-    with open('results/label/' + str(sid) + '_' + str(h) + '.pickle', 'wb') as f:
+    with open('results/label/' + 'boundary_weight_0.05_' + str(sid) + '_' + str(h) + '.pickle', 'wb') as f:
         pickle.dump({'predict_label': predict_label, 'dice_score': dice_score}, f)
