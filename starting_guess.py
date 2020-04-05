@@ -154,7 +154,7 @@ if __name__ == '__main__':
         else:
             logging.info("True labels don't exist!")
             ds = None
-        with open('results/label/' + 'sg_'+str(sid_sg) +'_boundary_weight_0.05_' + str(sid) + '_' + str(h) + '.pickle', 'wb') as f:
+        with open('results/label/' + str(sid) + '_' + str(h) + '_sg_'+str(sid_sg) +'_boundary_weight_0.05' + '.pickle', 'wb') as f:
             pickle.dump({'predict_label': predict_label, 'dice_score': ds}, f)
         if dice_score_sg != {}:
             key_max = max(dice_score_sg.keys(), key=(lambda k: dice_score_sg[k]))

@@ -562,7 +562,7 @@ def visualization(u, v, fmap, label, logxy, logmaxecc, angle, eccen, sid, h, sid
                 for (uu, vv) in zip(boundary_u, boundary_v)]
         ax.scatter(boundary_coords[0], boundary_coords[1],
                    c=clrs, s=0.5, cmap='gray')
-    plt.savefig('results/fig/' + 'sg_'+str(sid_sg) +'_boundary_weight_0.05_'+str(sid) + '_' + str(h) + '.png')
+    plt.savefig('results/fig/' + str(sid) + '_' + str(h) + '_sg_'+str(sid_sg) + '_boundary_weight_0.05' + '.png')
 
 
 # In order to compare the true labels with the predicted labels, we need

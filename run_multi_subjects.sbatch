@@ -2,13 +2,14 @@
 
 #SBATCH --job-name=rw-msubs
 #SBATCH --output=output_test.slurm
-##SBATCH -a 0-180
-#SBATCH -a 0-90
+#SBATCH -a 31-60
 #SBATCH --nodes=1
-#SBATCH --mem-per-cpu=32GB
-#SBATCH --cpus-per-task=2
-#SBATCH --time=12:00:00
-#SBATCH --gres=gpu:2
+
+##SBATCH -a 0-180
+##SBATCH --mem-per-cpu=32GB
+##SBATCH --cpus-per-task=4
+##SBATCH --time=12:00:00
+##SBATCH --gres=gpu:2
 
 module purge
 module load freesurfer/6.0.0
