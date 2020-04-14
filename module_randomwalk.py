@@ -65,7 +65,7 @@ def set_up():
                         ' or that you do not have an internet connection.')
 
 
-def autolabel_initializition(sid, h, max_eccen):
+def autolabel_initializition(sid, h):
     # get the subject
     sub = ny.hcp_subject(sid)
     # We will use one of the subject's hemisphere's (eigher lh or rh).
@@ -75,26 +75,6 @@ def autolabel_initializition(sid, h, max_eccen):
     # We don't need the whole hemisphere; just the rear occipital hemisphere.
     fmap = ny.to_flatmap('occipital_pole', hemi)
 
-    # The Tesselation object fmap.tess stores both the faces in the triangle-
-    # # mesh and the edges in the equivalent graph; we extract them.
-    #     (a,b,c) = F = fmap.tess.indexed_faces
-    #     (u,v) = E = fmap.tess.indexed_edges
-    #     V = fmap.tess.indices
-    #     n = fmap.tess.vertex_count
-    #     m = fmap.tess.face_count
-    #     p = fmap.tess.edge_count
-    # # Notes:
-    #  - In the above, the reason that we use fmap.tess.indexed_edges and faces
-    #    instead of fmap.tess.edges and faces is that the indexed edges treat
-    #    the vertices as numbers 0 through n-1 (for n vertices) while the normal
-    #    edges give the vertex labels, which are effectively arbitrary integers.
-    #  - a, b, and c are all vectors of vertex indices of length m, which is the
-    #    number of faces in the mesh.
-    #  - u and v are vectors of vertex indices of length p, which is the number
-    #    of edges in the graph.
-    #  - V is just a vector equivalent to range(n) where n is the number of
-    #    vertices.
-
     # We also want to extract the visual-field coordinates. These coordinates
     # are encoded on the fmap as the properties 'prf_polar_angle' and
     # 'prf_eccentricity', which we can extract using neuropythy:
@@ -102,14 +82,6 @@ def autolabel_initializition(sid, h, max_eccen):
     # Convert the retinotopy data to (x,y) coordinates.
     (x, y) = ny.as_retinotopy(rdat, 'geographical')
     xy = np.transpose([x, y]).astype('float32')
-    # Notes:
-    #  - x and y are vectors of length n; one coordinate per vertex.
-    #  - rdat is a dict of similar vectors for the pRF properties.
-    #  - 'geographical' coordinates are degrees of x and y (or
-    #    latitude and longitude) from the fovea.
-    #  - We convert to float32 because it is easier to work with
-    #    one kind of floating type with numba (which is used below
-    #    for optimization).
 
     # We will also want the eccentricity of the vertices for convenience.
     eccen = np.sqrt(x ** 2 + y ** 2)
@@ -119,39 +91,34 @@ def autolabel_initializition(sid, h, max_eccen):
     # starting at the positive y-axis.
     angle = 90 - 180 / np.pi * angle
     angle = np.mod(angle + 180, 360) - 180
+    return xy, fmap, angle, eccen, hemi
 
-    # We might also want to know how confident we are in the pRF measurements;
-    # to measure this we use the coefficient of determination (r-squared). A
-    # value of 0 indicates a very poor fit while a value of 1 indicates a very
-    # good fit. Keep in mind that this is a correlate of our confidence in the
-    # (x,y) predictions, not a measure of confidence in those values precisely.
-    #     cod = rdat['variance_explained']
+def starting_guess(hemi, fmap, h, max_eccen, sid_sg = None):
 
     pred = ny.vision.predict_retinotopy(hemi)
 
     angle0 = pred['angle']
     eccen0 = pred['eccen']
-    label0 = pred['varea']
+    if sid_sg is None:
+        label0 = pred['varea']
+    else:
+        path = os.path.join('visual_area_labels', '%s.%d_varea.mgz' % (h, sid_sg))
+        label0 = ny.load(path)
+        sub_sg = ny.hcp_subject(sid_sg)
+        hemi_sg = sub_sg.hemis[h]
+        label0 = hemi_sg.interpolate(hemi, label0, method='nearest')
 
     # These are for the whole hemisphere, so we take the verrtices
     # that are in the fmap only.
     (angle0, eccen0, label0) = [np.array(prop[fmap.labels])
                                 for prop in (angle0, eccen0, label0)]
 
-    # Convert to x and y.
-    #     th0 = np.pi/180 * (90 - angle0)
-    #     x0 = eccen0 * np.cos(th0)
-    #     y0 = eccen0 * np.sin(th0)
-    #     xy0 = np.transpose([x0,y0])
-    # Good to convert to float32 also.
-    #     (th0,x0,y0,xy0) = [q.astype('float32') for q in (th0,x0,y0,xy0)]
-
     # We should limit the initial label predictions to the max_eccen.
     label0[eccen0 > max_eccen] = 0
     # We also want only V1, V2, and V3 labels (as well as blanks, 0).
     label0[~np.isin(label0, [0, 1, 2, 3])] = 0
 
-    return xy, label0, fmap, eccen, angle
+    return label0
 
 
 ## the score function
@@ -566,7 +533,7 @@ def autolabel_anneal(tess, labels, xys, nsteps=250000,
 #     return (score, labels)
 
 
-def visualization(u, v, fmap, label, logxy, logmaxecc, angle, eccen, sid, h):
+def visualization(u, v, fmap, label, logxy, logmaxecc, angle, eccen, sid, h, sid_sg):
     # Plot the result of the above steps:
     boundary = label[u] != label[v]
     boundary_u = u[boundary]
@@ -595,7 +562,7 @@ def visualization(u, v, fmap, label, logxy, logmaxecc, angle, eccen, sid, h):
                 for (uu, vv) in zip(boundary_u, boundary_v)]
         ax.scatter(boundary_coords[0], boundary_coords[1],
                    c=clrs, s=0.5, cmap='gray')
-    plt.savefig('results/fig/' + str(sid) + '_' + str(h) + '.png')
+    plt.savefig('results/fig/' + str(sid) + '_' + str(h) + '_sg_'+str(sid_sg) + '_boundary_weight_0.05' + '.png')
 
 
 # In order to compare the true labels with the predicted labels, we need
