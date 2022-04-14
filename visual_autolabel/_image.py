@@ -8,7 +8,7 @@
 
 #-------------------------------------------------------------------------------
 # External Libries
-import os, sys, time, copy, pimms PIL, cv2, warnings, torch
+import os, sys, time, copy, pimms, PIL, cv2, warnings, torch
 import numpy as np
 import scipy as sp
 import nibabel as nib
@@ -22,15 +22,17 @@ import matplotlib.pyplot as plt
 from .util import (sids, partition_id, partition as partition_sids,
                    is_partition, trndata, valdata, convrelu)
 
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, models
+from torch.utils.data import (Dataset, DataLoader)
+from torchvision import (transforms, models)
 
 
 #===============================================================================
 # Configuration
 
+# The size of images that get saved to cache.
+saved_image_size = 512
 # The default size for images in pixels.
-default_image_size = 512
+default_image_size = 128
 
 
 #===============================================================================
@@ -95,12 +97,22 @@ class HCPVisualDataset(Dataset):
                    'prf_eccentricity':(0,12),
                    'prf_radius':(0,4),
                    'prf_variance_explained': (0,1)}
+    both_layers = {k:v
+                   for d in (anat_layers, func_layers)
+                   for (k,v) in d.items()}
+    layer_index = {k:ii for (ii,k) in enumerate(both_layers.keys())}
+    saved_image_size = saved_image_size
     default_image_size = default_image_size
     def __init__(self, sids, features='func',
                  image_size=default_image_size,
                  cache_path=None):
         self.sids = np.array(sids)
         self.image_size = image_size
+        if isinstance(features, tuple):
+            for f in features:
+                if f not in self.both_layers:
+                    raise ValueError(f"unrecognized feature: {f}")
+            self.features = features
         if features in ('func', 'anat', 'both'):
             self.features = features
         else:
@@ -114,7 +126,17 @@ class HCPVisualDataset(Dataset):
         If the dataset's `features` attribute is `'func'` or `'anat'` then this
         value is 4; if `features` is `'both'`, then `feature_count` is 8.
         """
-        return 8 if self.features == 'both' else 4
+        if isinstance(self.features, tuple):
+            return len(self.features)
+        else:
+            return 8 if self.features == 'both' else 4
+    @property
+    def class_count(self):
+        """Returns the number of classes (output labels) in the dataset.
+
+        This is always 6.
+        """
+        return 6
     def fwd_transform(self, inimg, outimg=None):
         """Transforms an image in preparation for model training.
 
@@ -157,19 +179,23 @@ class HCPVisualDataset(Dataset):
     def __len__(self):
         return len(self.sids)
     def __getitem__(self, k):
-        (p,f,b,s) = HCPVisualDataset.images(self.sids[k],
-                                            image_size=self.image_size, 
-                                            cache=self._cache,
-                                            cache_path=self.cache_path)
-        p = (f if self.features == 'func' else
-             p if self.features == 'anat' else
-             b)
+        (p,f,b,s) = self.images(self.sids[k],
+                                image_size=self.image_size, 
+                                cache=self._cache,
+                                cache_path=self.cache_path)
+        if isinstance(self.features, tuple):
+            f = np.concatenate([p,f], axis=-1)
+            p = f[..., [self.layer_index[k] for k in self.features]]
+        else:
+            p = (f if self.features == 'func' else
+                 p if self.features == 'anat' else
+                 b)
         return self.fwd_transform(p, s)
     def get(self, k):
-        return HCPVisualDataset.images(self.sids[k],
-                                        image_size=self.image_size, 
-                                        cache=self._cache,
-                                        cache_path=self.cache_path)
+        return self.images(self.sids[k],
+                           image_size=self.image_size, 
+                           cache=self._cache,
+                           cache_path=self.cache_path)
     @staticmethod
     def resize_image(im, image_size):
         """Resizes the given image to the given size.
@@ -233,7 +259,7 @@ class HCPVisualDataset(Dataset):
             PIL.Image.fromarray(im).save(flnm)
         return (param, fparam, bparam, sol)
     @classmethod
-    def generate_images(self, sid, image_size=default_image_size,
+    def generate_images(self, sid, image_size=saved_image_size,
                         anat_layers=Ellipsis, func_layers=Ellipsis):
         """Generates and returns images for a single subject.
 
@@ -248,9 +274,10 @@ class HCPVisualDataset(Dataset):
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         # Get the subject and make a figure.
         sub = ny.data['hcp_lines'].subjects[sid]
-        ms  = {h:ny.to_flatmap('occipital_pole', sub[h]) for h in ['lh','rh']}
+        ms  = {h:ny.to_flatmap('occipital_pole', sub.hemis[h])
+               for h in ['lh','rh']}
         ims = []
-        for (p,(mn,mx)) in six.iteritems(anat_layers):
+        for (p,(mn,mx)) in anat_layers.items():
             (fig,axs) = plt.subplots(1,2, figsize=(2,1), dpi=dis)
             fig.subplots_adjust(0,0,1,1,0,0)
             fig.set_facecolor('k')
@@ -313,8 +340,11 @@ class HCPVisualDataset(Dataset):
             ims.append(image[:,:,0])
         sol = np.transpose(ims, (1,2,0))
         return (param, fparam, sol)
-def make_datasets(features=None, sids=sids, partition=(0.8, 0.2),
-                  cache_path=cache_path, image_size=default_image_size):
+def make_datasets(features=None,
+                  sids=sids,
+                  partition=(0.8, 0.2),
+                  cache_path=None,
+                  image_size=default_image_size):
     """Returns a mapping of training and validation datasets.
 
     The mapping returned by `make_datasets()` contains, at the top level, the
@@ -350,7 +380,7 @@ def make_datasets(features=None, sids=sids, partition=(0.8, 0.2),
         both. If `features` is `None`, then the return value is equivalent to
         `{f: make_datasets(f) for f in ['anat', 'func', 'both']}`.
     """
-    (trn_sids, val_sids) = partition(sids, how=partition)
+    (trn_sids, val_sids) = partition_sids(sids, how=partition)
     def curry_fn(sids, feat):
         return (lambda:HCPVisualDataset(sids, features=feat,
                                         cache_path=cache_path,
@@ -361,12 +391,13 @@ def make_datasets(features=None, sids=sids, partition=(0.8, 0.2),
                                'val': curry_fn(val_sids, feat)})
              for feat in ['anat', 'func', 'both']})
     else:
-        return pimms.lmap({'trn': curry_fn(trn_sids, feat),
-                           'val': curry_fn(val_sids, feat)})
+        return pimms.lmap({'trn': curry_fn(trn_sids, features),
+                           'val': curry_fn(val_sids, features)})
 def make_dataloaders(features=None,
+                     sids=sids,
                      partition=None,
                      cache_path=None,
-                     image_size=default_image_size,
+                     image_size=None,
                      datasets=None, 
                      shuffle=True,
                      batch_size=5):
@@ -390,8 +421,9 @@ def make_dataloaders(features=None,
     partition : partition-like, optional
         How to make the partition of sujbect-IDs; the partition is made using
         `visual_autolabel.utils.partitoin(sids, how=partition)`.
-    image_size : int, optional
-        The width of the training images, in pixels (default: 512).
+    image_size : int or None, optional
+        The width of the training images, in pixels; if `None`, then 512 is
+        used (default: `None`).
     cache_path : str or None, optional
         The path in which the dataset will be cached, or None if no cache is to
         be used (the default).
@@ -416,6 +448,7 @@ def make_dataloaders(features=None,
         value is equivalent to
         `{f: make_dataloader(f, **kw) for f in ['anat', 'func', 'both']}`.
     """
+    if image_size is None: image_size = default_image_size
     # What were we given for datasets?
     if datasets is None:
         # We need to make the datasets using the other options.
@@ -444,7 +477,7 @@ def make_dataloaders(features=None,
     trn = trndata(datasets)
     val = valdata(datasets)
     return pyr.m(
-        trn=DataLoader(trn, batch_size=batch_size, shuffle=shuffle)
+        trn=DataLoader(trn, batch_size=batch_size, shuffle=shuffle),
         val=DataLoader(val, batch_size=batch_size, shuffle=shuffle))
 
 #-------------------------------------------------------------------------------
@@ -509,6 +542,7 @@ class UNet(torch.nn.Module):
         self.feature_count = feature_count
         self.class_count = class_count
         self.pretrained_resnet = pretrained_resnet
+        self.apply_sigmoid = apply_sigmoid
         # Set up the base model and base layers for the model.
         self.base_model = models.resnet18(pretrained=pretrained_resnet)
         if feature_count != 3:
@@ -558,7 +592,7 @@ class UNet(torch.nn.Module):
             self.middle_branch1 = _branch(170)
             self.middle_branch2 = _branch(170)
             self.middle_branch2 = _branch(171)
-            self.middle_branch4 = None middle_branches == 3 else _branch()
+            self.middle_branch4 = None if middle_branches == 3 else _branch()
             self.middle_converge = nn.Sequential(
                 convrelu(512, 512, 3, 1),
                 convrelu(512, 512, 1, 0))
@@ -579,7 +613,7 @@ class UNet(torch.nn.Module):
         self.conv_original_size0 = convrelu(feature_count, 64, 3, 1)
         self.conv_original_size1 = convrelu(64, 64, 3, 1)
         self.conv_original_size2 = convrelu(64 + 128, 64, 3, 1)
-        self.conv_last = nn.Conv2d(64, n_class, 1)
+        self.conv_last = nn.Conv2d(64, class_count, 1)
     def forward(self, input):
         # Do the original size convolutions.
         x_original = self.conv_original_size0(input)

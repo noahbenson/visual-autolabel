@@ -166,7 +166,7 @@ def train_model(model, optimizer, scheduler, dataloaders,
     tuple
         A 3-tuple of `(trained_model, best_loss, best_dice_loss)`.
     """
-    import time, torch
+    import time, torch, copy, os
     from .util import loss as calc_loss
     # Parse some arguments.
     if device is None:
@@ -242,3 +242,337 @@ def train_model(model, optimizer, scheduler, dataloaders,
     model.load_state_dict(best_model_wts)
     return (model, best_loss, best_dice)
 
+def _make_dataloaders_and_model(dataloaders=None,
+                                features='anat',
+                                partition=(0.8, 0.2),
+                                data_cache_path=None,
+                                image_size=None,
+                                datasets=None,
+                                shuffle=True,
+                                batch_size=5,
+                                model=None,
+                                pretrained_resnet=False,
+                                middle_branches=False,
+                                apply_sigmoid=False):
+    import torch
+    from .util import (is_partition, trndata, valdata)
+    from ._image import make_dataloaders
+    # First, make the dataloaders.
+    if not is_partition(dataloaders):
+        if dataloaders is None: dataloaders = make_dataloaders
+        dataloaders = dataloaders(features=features,
+                                  partition=partition,
+                                  datasets=datasets,
+                                  image_size=image_size,
+                                  cache_path=data_cache_path,
+                                  shuffle=shuffle,
+                                  batch_size=batch_size)
+    dl_trn = trndata(dataloaders)
+    dl_val = valdata(dataloaders)
+    # Next, we make the starting model.
+    if isinstance(model, torch.nn.Module):
+        start_model = model
+    else:
+        if model is None:
+            from ._image import UNet
+            model = UNet
+        start_model = model(dl_trn.dataset.feature_count,
+                            dl_trn.dataset.class_count,
+                            pretrained_resnet=pretrained_resnet,
+                            middle_branches=middle_branches,
+                            apply_sigmoid=apply_sigmoid)
+    return (dataloaders, start_model)
+
+def build_model(# Step 1: Build DataLoaders.
+                dataloaders=None,
+                features='anat',
+                partition=(0.8, 0.2),
+                data_cache_path=None,
+                image_size=None,
+                datasets=None,
+                shuffle=True,
+                batch_size=5,
+                # Step 2: Build Model.
+                model=None,
+                pretrained_resnet=False,
+                middle_branches=False,
+                apply_sigmoid=False,
+                # Step 3: Optimizer and Scheduler.
+                lr=0.004,
+                step_size=None,
+                gamma=0.90,
+                # Step 4: Training.
+                nthreads=Ellipsis,
+                nice=10,
+                num_epochs=10,
+                model_cache_path=None,
+                device=None,
+                hlines=False,
+                logger=print,
+                endl='',
+                bce_weight=0.5,
+                reweight=True,
+                smoothing=1):
+    """Creates, trains, and returns a PyTorch model.
+
+    `build_model()` encapsulates the creation of the PyTrch model and the model
+    `DataLoader` objects as well as the `train_model()` function. Given a set of
+    parameters for all of these functions, runs a single batch of epochs and
+    returns the trained model.
+
+    The first step in this function is construction of the PyTorch `DataLoader`
+    objects for the model training. The `dataloaders` option (default: `None`)
+    can either be a partition (see `is_partition`) of training and validation
+    dataloader objects or `None`, in which case the `make_dataloaders()`
+    function is used, and the options `features`, `partition`,
+    `data_cache_path`, `image_size`, `datasets`, `shuffle`, and `batch_size` are
+    all passed to it. If `make_dataloaders` is not used, then these arguments
+    are ignored.
+
+    Next is the construction of the model itself. If a PyTorch model is given
+    for the `model` parameter (below), then this step is skipped. Otherwise, the
+    `model` parameter must be a callable or `None`, in which case `UNet` is
+    used. The callable is called with the arguments `feature_count`,
+    `class_count`, `pretrained_resnet`, `middle_branches`, and `apply_sigmoid`,
+    and the return value must be a PyTorch `Module` to use as the model.
+
+    Next, the optimizer and scheduler are created. The optimizer is always the
+    PyTorch `Adam` optimizer, and the scheduler is always the `StepLR` type.
+    The learning rate parameter (`lr`) is passed to the optimizer, and the
+    `step_size` and `gamma` parameters are passed to the optimizer.
+    Additionally, the number of PyTorch threads is set to `nthreads`, and the
+    OS's nice value is set to `nice`.
+
+    Finally, the model is trained using the `train_model()` function. The
+    optional parameters num_epochs`, `model_cache_path`, `device`, `hlines`,
+    `logger`, `endl`, `bce_weight`, `reweight`, and `smoothing` are passed to
+    this function.
+
+    Parameters
+    ----------
+    dataloaders : partition of DataLoaders or None, optional
+        The PyTorch `DataLoader` objects to use. If `None`, then the dataloaders
+        are created using the `make_dataloaders()` function. Alternately,
+        `dataloaders` may be a function, In either case, the `features`, `sids`,
+        `partition`, `image_size`, `data_cache_path`, `datasets`, `shuffle`,
+        and `batch_size` parameters are passed to the function. If a partition
+        of dataloaders is given, then these options are instead ignored.
+    features : 'func' or 'anat' or 'both' or None, optional
+        The type of input images that the dataset uses: functional data
+        (`'func'`), anatomical data (`'anat'`), or both (`'both'`). If `None`
+        (the default), then a mapping is returned with each input dataset type
+        as values and with `'func'`, `'anat'`, and `'both'` as keys.
+    sids : list-like, optional
+        An iterable of subject-IDs to be included in the datasets. By default,
+        the subject list `visual_autolabel.util.sids` is used.
+    partition : partition-like, optional
+        How to make the partition of sujbect-IDs; the partition is made using
+        `visual_autolabel.utils.partitoin(sids, how=partition)`.
+    image_size : int or None, optional
+        The width of the training images, in pixels; if `None`, then 512 is
+        used (default: `None`).
+    data_cache_path : str or None, optional
+        The path in which the dataset will be cached, or None if no cache is to
+        be used (the default).
+    datasets : None or mapping of datasets, optional
+        A mapping of datasets that should be used. If the keys of this mapping
+        are `'trn'` and `'val'` then all of the above arguments are ignored and
+        these datasets are used for the dataloaders. Otherwise, if `features` is
+        a key in `datasets`, then `datasets[features]` is used and the other
+        options above are ignored. Otherwise, if `datasets` is `None` (the
+        default), then the datasets are created using the above options.
+    shuffle : boolean, optional
+        Whether to shuffle the IDs when loading samples (default: `True`).
+    batch_size : int, optional
+        The batch size for samples from the dataloader (default: 5).
+    model : PyTorch Module or None, optional
+        The PyTorch `Module` (model) object to train, or `None` (the default),
+        in which a `UNet` is created, and the options `pretrained_resnet`,
+        `middle_branchs`, and `apply_sigmoid` are passed to it. Alternately,
+        `model` may be a function that returns a PyTorch module, and these same
+        optional parameters are passed to it. If a `Module` is given, then these
+        options are instead ignored.
+    pretrained_resnet : boolean, optional
+        Whether to use a pretrained resnet for the backbone (default: False).
+    middle_branches : boolean, optional
+        Whether to include a set of branched filters in the middle of the
+        `UNet`. These filters can improve the model's performance in some cases.
+        The default is `False`.
+    apply_sigmoid : boolean, optional
+        Whether to apply the sigmoid function to the outputs. The default is
+        `False`.
+    lr : float, optional
+        The initial learning rate for the optimizer. The default is 0.004.
+    step_size : int or None, optional
+        The step size for the scheduler. If `None`, then the size of the
+        training dataset is used (i.e., one step per epoch).
+    gamma : float or None, optional
+        The rate of exponential decay in the learning rate; the default is
+        0.9.
+    nthreads : int or None, optional
+        The number of PyTorch threads to use during training. If `None`, then
+        the number of threads is not changed. If a negative number is given,
+        the the number of CPUs plus this number is used. If `Ellipsis` is given
+        (the default), then all CPUs are used.
+    nice : int or None, optional
+        If not `None`, then sets the OS's nice value for the process to this
+        number before training the model. The default is 10.
+    num_epochs : int, optional
+        The number of training epochs to run (default: 10).
+    model_cache_path : str or None, optional
+        If provided, the model and optimizer state will be pickled to files in
+        this directory at the end of every epoch.
+    device : str or None, optional
+        The device to use for PyTorch training. If `None` (the default), then
+        uses CUDA if CUDA is available and otherwise uses CPU.
+    hlines : boolean, optional
+        Whether to print horizontal lines in the logger for clarity (default:
+        False).
+    logger : function or None, optional
+        The logging function to use. If `None`, then nothing is logged. The
+        default is `print`.
+    endl : str or None, optional
+        The end-of-line string to use when printing. For logging functions like
+        `print`, which automatically append a newline, this can be `None` or
+        just `""`.
+    logits : boolean, optional
+        Whether the values in `pred` are logits--i.e., unnormalized scores that
+        have not been run through a sigmoid calculation already. If this is
+        `True`, then the BCE starts by calculating the sigmoid of the `pred`
+        argument. If `None`, then attempts to deduce whether the input is or is
+        not logits. The default is `None`.
+    bce_weight : float, optional
+        The weight to give the BCE-based loss; the weight for the 
+        dice-coefficient loss is always `1 - bce_weight`. The default is `0.5`.
+    reweight : boolean, optional
+        Whether to reweight the classes by calculating the BCE for each class
+        then calculating the mean across classes. If `False`, then the raw BCE
+        across all pixels, classes, and batches is returned (the default).
+    smoothing : number, optional
+        The smoothing coefficient `s` to use with the dice-coefficient liss.
+        The default is `1`.
+
+    Returns
+    -------
+    tuple
+        A 3-tuple of `(trained_model, best_loss, best_dice_loss)`.
+    """
+    import torch
+    from .util import is_partition
+    # First, create the dataloaders and starting model.
+    (dataloaders, start_model) = _make_dataloaders_and_model(
+        dataloaders=dataloaders,
+        features=features,
+        partition=partition,
+        data_cache_path=data_cache_path,
+        image_size=image_size,
+        datasets=datasets,
+        shuffle=shuffle,
+        batch_size=batch_size,
+        model=model,
+        pretrained_resnet=pretrained_resnet,
+        middle_branches=middle_branches,
+        apply_sigmoid=apply_sigmoid)
+    # Next, create the optimizer.
+    optimizer = torch.optim.Adam(
+        filter(lambda p: p.requires_grad, start_model.parameters()),
+        lr=lr)
+    # Next, create the scheduler.
+    if step_size is None: step_size = len(dataloaders['trn'])
+    scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer,
+        step_size=step_size,
+        gamma=gamma)
+    # Prepare for optimization.
+    if nthreads is not None:
+        import os
+        if nthreads is Ellipsis:
+            nthreads = os.cpu_count()
+        elif nthreads < 0:
+            nthreads = os.cpu_count() + nthreads
+        torch.set_num_threads(nthreads)
+    if nice is not None:
+        os.nice(nice)
+    if device is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    start_model = start_model.to(device)
+    return train_model(start_model, optimizer, scheduler, dataloaders,
+                       smoothing=smoothing,
+                       num_epochs=num_epochs,
+                       save_path=model_cache_path,
+                       logger=logger,
+                       bce_weight=bce_weight,
+                       reweight=reweight, 
+                       device=device,
+                       hlines=hlines)
+
+def run_modelplan(modelplan, **kw):
+    """Executes a model-plan, which builds and trains a model.
+
+    The `run_modelplan` is intended as a way to build and train a model using a
+    number of rounds of training, each consisting of a single call to the
+    `train_model` function. The first argument, `modelplan` must be an iterable
+    of dict-like objects. Each dictionary contains specific parameters for a
+    single call to `build_model`.
+
+    The initial model is built using the optional parameters passed to this
+    function, along with the initial dataloaders. These are then passed from
+    training round to training round. If a parameter for the `make_dataloaders`
+    function appears in an entry of the `modelplan`, then the dataloaders are
+    replaced with new dataloaders using these parameters (which overwrite this
+    function's parameters).
+
+    Additionally, `run_modelplan` catches `KeyboardInterrupt` exceptions and
+    returns the current best model.
+    """
+    import torch, inspect, copy, os
+    # First, create the dataloaders and the model.
+    make_sig = inspect.signature(_make_dataloaders_and_model)
+    make_opts = {k: kw[k] for (k,v) in make_sig.parameters.items() if k in kw}
+    (dataloaders, start_model) = _make_dataloaders_and_model(**make_opts)
+    # We want to eliminate these options--in the future we will just pass the
+    # model and dataloaders.
+    for k in make_opts.keys(): del kw[k]
+    kw0 = kw # Save the original arguments.
+    # We also use the model cache path and logger if they are provided.
+    model_cache_path = kw0.get('model_cache_path', None)
+    # Prepare for the rounds of training.
+    model = start_model
+    best_dice = 1e10
+    best_loss = 1e10
+    best_mdl = model # We track best model by dice, not combined loss.
+    best_mdl_wts = copy.deepcopy(model.state_dict())
+    build_sig = inspect.signature(build_model)
+    for (ii,step_kw) in enumerate(modelplan):
+        # The new instructions are a the passed options, overwritten by the
+        # specific model plan step options.
+        kw = dict(kw0)
+        kw.update(step_kw)
+        logger = kw.get('logger', print)
+        # If there are updates to the dataloaders, we regenerate them.
+        opts = {k:kw[k] for k in make_sig.parameters.keys() if k in step_kw}
+        if len(opts) > 0:
+            tmp = dict(make_opts)
+            tmp.update(opts)
+            dataloaders = _make_dataloaders_and_model(**tmp)[0]
+        # We can now add the dataloaders and model parameters.
+        kw['dataloaders'] = dataloaders
+        kw['model'] = model
+        # Print a blank line between rounds.
+        if ii > 0 and logger is not None: logger("")
+        # Update the cache-path if we have one cache path.
+        if model_cache_path is not None:
+            cpath = os.path.join(model_cache_path, 'round%02d' % (ii + 1,))
+            if not os.path.isdir(cpath): os.makedirs(cpath, mode=0o755)
+            kw['model_cache_path'] = cpath
+       # Run the buiid-model function.
+        opts = {k:kw[k] for k in build_sig.parameters.keys() if k in kw}
+        (model,loss,dice) = build_model(**opts)
+        if dice < best_dice:
+            import copy
+            best_dice = dice
+            best_mdl = model
+            best_mdl_wts = copy.deepcopy(model.state_dict())
+            best_loss = loss
+    best_mdl.load_state_dict(best_mdl_wts)
+    return (best_mdl,best_loss,best_dice)

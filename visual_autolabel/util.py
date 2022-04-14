@@ -18,7 +18,7 @@ sids = np.array([sid for sid in data.subject_list
                  if ('mean',sid,'lh') not in data.exclusions
                  if ('mean',sid,'rh') not in data.exclusions])
 sids.flags['WRITEABLE'] = False
-del ny, np, data, sid
+del ny, np, data
 
 
 #===============================================================================
@@ -72,7 +72,7 @@ def trndata(obj):
     if isinstance(obj, tuple):
         return obj[0]
     else:
-        return obj['tnn']
+        return obj['trn']
 def valdata(obj):
     """Returns the validation data from a subject partition.
 
@@ -115,14 +115,14 @@ def partition_id(obj):
         the `obj` parameter.
     """
     from torch.utils.data import (DataLoader, Dataset)
-    trndat = trndata(dataloaders)
-    valdat = valdata(dataloaders)
+    trndat = trndata(obj)
+    valdat = valdata(obj)
     if isinstance(trndat, DataLoader): trndat = trndat.dataset
     if isinstance(valdat, DataLoader): valdat = valdat.dataset
     if isinstance(trndat, Dataset):    trndat = trndat.sids
     if isinstance(valdat, Dataset):    valdat = valdat.sids
-    trn = [(sid,'1') for sid in dataloaders[0]]
-    val = [(sid,'0') for sid in dataloaders[1]]
+    trn = [(sid,'1') for sid in obj[0]]
+    val = [(sid,'0') for sid in obj[1]]
     sids = sorted(trn + val, key=lambda x:x[0])
     pid = int(''.join([x[1] for x in sids]), 2)
     return hex(pid)
@@ -161,31 +161,32 @@ def partition(sids, how=(0.8, 0.2)):
         subject-IDs in the training and validation sets, respectively.
     """
     import numpy as np
-    sids = np.asarary(sids)
+    sids = np.asarray(sids)
     n = len(sids)
     if isinstance(how, tuple):
         ntrn = trndata(how)
         nval = valdata(how)
-        tot = ntrn + nval
-        if ntrn < 0 or nval < 0: raise ValueError("trn and val must be > 0")
         if isinstance(ntrn, float) and isinstance(nval, float):
-            val = round(val * n)
-            trn = round(trn * n)
-            tot = val + trn
+            if ntrn < 0 or nval < 0: raise ValueError("trn and val must be > 0")
+            nval = round(nval * n)
+            ntrn = round(ntrn * n)
+            tot = nval + ntrn
             if tot != n: raise ValueError("partition requires trn + val == 1")
-        elif isinstance(trn, int) and isinstance(val, int):
+        elif isinstance(ntrn, int) and isinstance(nval, int):
+            if ntrn < 0 or nval < 0: raise ValueError("trn and val must be > 0")
+            tot = ntrn + nval
             if tot != n: 
                 raise ValueError("partition requires trn + val == len(sids)")
-        elif isinstance(trn, np.ndarray) and isinstance(val, np.ndarray):
+        elif isinstance(ntrn, np.ndarray) and isinstance(nval, np.ndarray):
             a1 = np.unique(sids)
-            a2 = np.unique(np.concatenate([trn, val]))
+            a2 = np.unique(np.concatenate([ntrn, nval]))
             if np.array_equal(a1, a2) and len(a1) == len(sids):
-                return (trn, val)
+                return (ntrn, nval)
             else:
                 raise ValueError("partitions must include all sids")
         else: raise ValueError("trn and val must both be integers or floats")
-        val_sids = np.random.choice(sids, val)
-        trn_sids = np.setdiff1d(sids, trn)
+        val_sids = np.random.choice(sids, nval)
+        trn_sids = np.setdiff1d(sids, val_sids)
     elif isinstance(how, str):
         sids = np.sort(sids)
         trn_ii = np.array([1 if s == '1' else 0 for s in '{0:b}'.format(how)],
@@ -317,7 +318,7 @@ def dice_loss(pred, gold, logits=None, smoothing=1, graph=False, metrics=None):
         if 'dice' not in metrics: metrics['dice'] = 0.0
         metrics['dice'] += loss.data.cpu().numpy() * gold.size(0)
     return loss
-def bce_loss(pred, target, logits=None, reweight=True, metrics=None):
+def bce_loss(pred, gold, logits=None, reweight=True, metrics=None):
     """Returns the loss based on the binary cross entropy.
     
     `bce_loss(pred, gold)` returns the binary cross entropy loss between the
@@ -355,11 +356,11 @@ def bce_loss(pred, target, logits=None, reweight=True, metrics=None):
     if logits: f = torch.nn.functional.binary_cross_entropy_with_logits
     else:      f = torch.nn.functional.binary_cross_entropy
     if reweight:
-        classes = [f(pred[:,[ii]], gold[:,[ii]]) for ii in range(pred.shape[1])]
+        n = pred.shape[-1] * pred.shape[-2]
         r = 0
-        for cl in classes: r += f
-        r = r / len(classes)
-        r = r.mean()
+        for k in range(pred.shape[1]):
+            (p,t) = (pred[:,[k]], gold[:,[k]])
+            r += f(p, t) * (n - torch.sum(t)) / n
     else:
         r = f(pred, gold)
     if metrics is not None:
