@@ -289,7 +289,7 @@ class HCPVisualDataset(Dataset):
         param = np.transpose(ims, (1,2,0))
         # Repeat for the functional param image
         ims = []
-        for (p,(mn,mx)) in six.iteritems(func_layers):
+        for (p,(mn,mx)) in func_layers.items():
             (fig,axs) = plt.subplots(1,2, figsize=(2,1), dpi=dis)
             fig.subplots_adjust(0,0,1,1,0,0)
             fig.set_facecolor('k')
