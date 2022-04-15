@@ -19,20 +19,13 @@ import matplotlib.pyplot as plt
 
 #-------------------------------------------------------------------------------
 # Internal Tools
+
+from .config import (default_partition, default_image_size, saved_image_size)
 from .util import (sids, partition_id, partition as partition_sids,
                    is_partition, trndata, valdata, convrelu)
 
 from torch.utils.data import (Dataset, DataLoader)
 from torchvision import (transforms, models)
-
-
-#===============================================================================
-# Configuration
-
-# The size of images that get saved to cache.
-saved_image_size = 512
-# The default size for images in pixels.
-default_image_size = 128
 
 
 #===============================================================================
@@ -342,7 +335,7 @@ class HCPVisualDataset(Dataset):
         return (param, fparam, sol)
 def make_datasets(features=None,
                   sids=sids,
-                  partition=(0.8, 0.2),
+                  partition=default_partition,
                   cache_path=None,
                   image_size=default_image_size):
     """Returns a mapping of training and validation datasets.

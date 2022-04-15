@@ -11,14 +11,8 @@ The `visual_autolabel.util` package contains utilities for use in and with the
 #===============================================================================
 # Constants / Globals
 
-# The subject-IDs that we use by default.
-import neuropythy as ny, numpy as np
-data = ny.data['hcp_lines']
-sids = np.array([sid for sid in data.subject_list
-                 if ('mean',sid,'lh') not in data.exclusions
-                 if ('mean',sid,'rh') not in data.exclusions])
-sids.flags['WRITEABLE'] = False
-del ny, np, data
+# Global Config Items.
+from .config import (default_partition, sids)
 
 
 #===============================================================================
@@ -126,7 +120,7 @@ def partition_id(obj):
     sids = sorted(trn + val, key=lambda x:x[0])
     pid = int(''.join([x[1] for x in sids]), 2)
     return hex(pid)
-def partition(sids, how=(0.8, 0.2)):
+def partition(sids, how=default_partition):
     """Partitions a list of subject-IDs into a training and validation set.
 
     `partition(sids, (frac_trn, frac_val))` returns `(trn_sids, val_sids)` where
@@ -430,3 +424,17 @@ def loss(pred, gold,
         if 'loss' not in metrics: metrics['loss'] = 0.0
         metrics['loss'] += loss.data.cpu().numpy() * gold.size(0)
     return loss
+
+#===============================================================================
+# __all__
+__all__ = ["is_partition",
+           "trndata",
+           "valdata",
+           "partition",
+           "partition_id",
+           "kernel_default_padding",
+           "convrelu",
+           "is_logits",
+           "dice_loss",
+           "bce_loss",
+           "loss"]

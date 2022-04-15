@@ -8,9 +8,12 @@ The `visual_autolabel.trail` package contains CNN model training utilities for
 use in and with the `visual_autolabel` library.
 """
 
-
 #===============================================================================
 # Constants / Globals
+
+#-------------------------------------------------------------------------------
+# Global Configuration Items
+from .config import default_partition
 
 #-------------------------------------------------------------------------------
 # Logging
@@ -244,7 +247,7 @@ def train_model(model, optimizer, scheduler, dataloaders,
 
 def _make_dataloaders_and_model(dataloaders=None,
                                 features='anat',
-                                partition=(0.8, 0.2),
+                                partition=default_partition,
                                 data_cache_path=None,
                                 image_size=None,
                                 datasets=None,
@@ -286,7 +289,7 @@ def _make_dataloaders_and_model(dataloaders=None,
 def build_model(# Step 1: Build DataLoaders.
                 dataloaders=None,
                 features='anat',
-                partition=(0.8, 0.2),
+                partition=default_partition,
                 data_cache_path=None,
                 image_size=None,
                 datasets=None,
@@ -576,3 +579,10 @@ def run_modelplan(modelplan, **kw):
             best_loss = loss
     best_mdl.load_state_dict(best_mdl_wts)
     return (best_mdl,best_loss,best_dice)
+
+
+#===============================================================================
+# __all__
+__all__ = ["train_model",
+           "build_model",
+           "run_modelplan"]
