@@ -32,7 +32,7 @@ normal_hwhm = np.sqrt(np.log(4.0))
 sin_well_width0 = 0.5 / normal_hwhm
 normal_well_width0 = 1.0
 cauchy_well_width0 = 1.0 / normal_hwhm
-logistic_well_width0 = np.log(3 + 2*np.sqrt(2.0)) / (2 * normal_hwhm)
+logistic_well_width0 = np.log(3 + np.sqrt(8.0)) / normal_hwhm
 
 # Clean the namespace.
 del np
@@ -46,7 +46,7 @@ del np
 # Step functions are sigmoid (or sigmoid-like) functions that make a step
 # from a min value to a max value around some center value.
 
-def sin_step(t, width=1, min=-1, max=1, center=0):
+def sin_step(t, width=1, min=0, max=1, center=0):
     '''A sine step function whose derivative is 0 outside of a finite range.
 
     `sin_step(t)` returns a sine-based step such that:
@@ -73,11 +73,12 @@ def sin_step(t, width=1, min=-1, max=1, center=0):
     actually representative of the same distribution, as is the case with other
     `_well` and `_step` functions.
     '''
+    from numpy import pi
     from torch import as_tensor, sin
     t = as_tensor(t)
     if center != 0: t = t - center
     t = t * (sin_step_width0 / width)
-    step = 0.5*(1 + sin(np.pi/2*t))
+    step = 0.5*(1 + sin(pi/2*t))
     step[t >  1] = 1
     step[t < -1] = 0
     return min + (max - min)*step
@@ -229,7 +230,8 @@ def cauchy_well(t, width=1, min=0, max=1, center=0):
     '''
     from torch import as_tensor
     t = (as_tensor(t) - center)
-    t *= cauchy_well_width0 / width
+    width /= cauchy_well_width0
+    t /= width
     u = 1 - 1/(1 + t**2)
     return min + (max - min) * u
 def logistic_well(t, width=1, min=0, max=1, center=0):
@@ -253,7 +255,8 @@ def logistic_well(t, width=1, min=0, max=1, center=0):
     '''
     from torch import as_tensor, exp
     t = (as_tensor(t) - center)
-    t *= logistic_well_width0 / width
+    width /= logistic_well_width0
+    t /= width
     et = exp(-t)
     u = 1 - 4*et/(1 + et)**2
     return u * (max - min) + min

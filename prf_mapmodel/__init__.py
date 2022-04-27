@@ -7,9 +7,9 @@
 """
 
 
-import util
-import potentials
-import distributions
+from . import util
+from . import potentials
+from . import distributions
 
 from .cmag import *
 

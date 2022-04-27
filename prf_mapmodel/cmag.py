@@ -143,8 +143,8 @@ def cmmdl_angle_multiplier(theta,
     ulpart = vma * torch.sign(thsin) * thsin**2
     return 1.0 + 0.5*(hvpart - ulpart)
 def cmmdl_hhcmag(eccen,
-                 c1=HH91_c1, 
-                 c2=HH91_c2):
+                 c1=HH1991_c1, 
+                 c2=HH1991_c2):
     '''Returns the Horton & Hoyt prediction of linear cortical magnification.
 
     `cmmdl_hhcmag(eccen)` returns the linear radial cortical magnification using
@@ -171,8 +171,8 @@ def cmmdl_hhcmag(eccen,
     '''
     return c1 / (c2 + eccen)
 def cmmdl_hhcmag2(eccen,
-                 c1=HH91_c1, 
-                 c2=HH91_c2):
+                 c1=HH1991_c1, 
+                 c2=HH1991_c2):
     '''Returns the Horton & Hoyt prediction of areal cortical magnification.
 
     `cmmdl_hhcmag2(eccen)` returns the areal radial cortical magnification using
@@ -199,8 +199,8 @@ def cmmdl_hhcmag2(eccen,
     '''
     return cmmdl_hhcmag(eccen)**2
 def cmmdl_cmag2(theta, eccen,
-                c1=HH91_c1, 
-                c2=HH91_c2,
+                c1=HH1991_c1, 
+                c2=HH1991_c2,
                 ui=Gibaldi2021_upper_ipsi,
                 li=Gibaldi2021_lower_ipsi, 
                 hva=Benson2021_HVA,
@@ -253,7 +253,7 @@ def cmmdl_cmag2(theta, eccen,
     rmag = cmmdl_hhcmag2(eccen, c1=c1, c2=c2)
     tmlt = cmmdl_angle_multiplier(theta, ui=ui, li=li, hva=hva, vma=vma)
     return rmag * tmlt
-def cmmdl_c1(area, max_eccen, c2=HH92_c2):
+def cmmdl_c1(area, max_eccen, c2=HH1991_c2):
     '''Returns the c1 parameter for a given surfaec area.
 
     `cmmdl_c1(area, max_eccen)` returns the value of `c1` in the cortical
