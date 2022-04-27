@@ -157,6 +157,7 @@ def partition(sids, how=default_partition):
     import numpy as np
     sids = np.asarray(sids)
     n = len(sids)
+    if how is None: how = default_partition
     if isinstance(how, tuple):
         ntrn = trndata(how)
         nval = valdata(how)
@@ -187,6 +188,8 @@ def partition(sids, how=default_partition):
                           dtype=np.bool)
         trn_sids = sids[trn_ii]
         val_sids = sids[~trn_ii]
+    else:
+        raise ValueError(f"invalid partition method: {how}")
     return (trn_sids, val_sids)
 
 #-------------------------------------------------------------------------------

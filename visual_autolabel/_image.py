@@ -59,6 +59,12 @@ class HCPVisualDataset(Dataset):
     For both anatomical and functional (`'both'`), 8 layers are returned,
     consisting of the anatomical layers followed by the functional layers.
 
+    In order to be compatible with PyTorch model norms, this class returns a
+    version of each subject's image that is oriented for use in a model; this is
+    different the typical image arrangement. To return an `HCPVisualDataset`'s
+    images to a more standard image orientation, the `inv_transform()` method
+    can be used.
+
     Parameters
     ----------
     sids : iterable of subject-IDs
@@ -221,6 +227,7 @@ class HCPVisualDataset(Dataset):
             iflnm = os.path.join(cache_path, 'images', '%s_anat.png' % sid)
             fflnm = os.path.join(cache_path, 'images', '%s_func.png' % sid)
             oflnm = os.path.join(cache_path, 'images', '%s_v123.png' % sid)
+
             try:
                 with PIL.Image.open(iflnm) as f: im = np.array(f)
                 param = im
@@ -388,7 +395,7 @@ def make_datasets(features=None,
                            'val': curry_fn(val_sids, features)})
 def make_dataloaders(features=None,
                      sids=sids,
-                     partition=None,
+                     partition=default_partition,
                      cache_path=None,
                      image_size=None,
                      datasets=None, 
