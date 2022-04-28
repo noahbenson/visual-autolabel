@@ -55,6 +55,10 @@ default_partition = (0.8, 0.2)
 # The subject-IDs that we use in training.
 # We need a couple libraries to generate the list, but we delete them below.
 import neuropythy as ny, numpy as np
+if len(ny.data['hcp_lines'].exclusions) == 0:
+    import warnings
+    warnings.warn('neuropythy "hcp_lines" dataset is missing exclusions')
+    del warnings
 sids = np.array([sid for sid in ny.data['hcp_lines'].subject_list
                  if ('mean',sid,'lh') not in ny.data['hcp_lines'].exclusions
                  if ('mean',sid,'rh') not in ny.data['hcp_lines'].exclusions])
