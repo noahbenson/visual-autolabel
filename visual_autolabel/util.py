@@ -180,7 +180,7 @@ def partition(sids, how=default_partition):
             else:
                 raise ValueError("partitions must include all sids")
         else: raise ValueError("trn and val must both be integers or floats")
-        val_sids = np.random.choice(sids, nval)
+        val_sids = np.random.choice(sids, nval, replace=False)
         trn_sids = np.setdiff1d(sids, val_sids)
     elif isinstance(how, str):
         sids = np.sort(sids)
