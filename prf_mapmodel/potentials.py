@@ -14,12 +14,12 @@ potential wells and steps for use in optimization by the `prf_mapmodel` library.
 
 # We import this just for the constant declarations, then delete it to keep the
 # namespace clean.
-import numpy as np
+import numpy as np, scipy as sp
 
 #-------------------------------------------------------------------------------
 # Step-function constants
 
-standard_well_area = 0.682689
+standard_well_area = sp.special.erf(1/np.sqrt(2))
 sin_step_width0 = 2.0 * np.arcsin(standard_well_area) / np.pi
 cauchy_step_width0 = np.tan(np.pi/2 * standard_well_area)
 normal_step_width0 = 1.0/np.sqrt(2.0)
@@ -35,7 +35,7 @@ cauchy_well_width0 = 1.0 / normal_hwhm
 logistic_well_width0 = np.log(3 + np.sqrt(8.0)) / normal_hwhm
 
 # Clean the namespace.
-del np
+del np, sp
 
 
 #===============================================================================
