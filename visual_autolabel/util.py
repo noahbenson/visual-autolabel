@@ -353,7 +353,7 @@ def bce_loss(pred, gold, logits=None, reweight=True, metrics=None):
     if logits: f = torch.nn.functional.binary_cross_entropy_with_logits
     else:      f = torch.nn.functional.binary_cross_entropy
     if reweight:
-        n = pred.shape[-1] * pred.shape[-2]
+        n = pred.shape[-1] * pred.shape[-2] * pred.shape[0]
         r = 0
         for k in range(pred.shape[1]):
             (p,t) = (pred[:,[k]], gold[:,[k]])
