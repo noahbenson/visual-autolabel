@@ -19,7 +19,7 @@ The code uses the dgl library, which performs the graph convolutions.
 
 #-------------------------------------------------------------------------------
 # External Libries
-import os, sys, time, copy, pimms PIL, cv2, warnings, torch, dgl
+import os, sys, time, copy, pimms, PIL, warnings, torch, dgl
 import numpy as np,
 import scipy as sp
 import nibabel as nib
