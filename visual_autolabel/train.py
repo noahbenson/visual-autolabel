@@ -236,9 +236,9 @@ def train_model(model, optimizer, scheduler, dataloaders,
         if hlines: log_epoch(Ellipsis, logger=logger, endl=endl)
         if save_path is not None:
             torch.save(model.state_dict(), 
-                       os.path.join(save_path, "model%06d.pkl" % epoch))
+                       os.path.join(save_path, "model%06d.pt" % epoch))
             torch.save(optimizer.state_dict(), 
-                       os.path.join(save_path, "optim%06d.pkl" % epoch))
+                       os.path.join(save_path, "optim%06d.pt" % epoch))
     if logger is not None:
         logger('Best val loss: {:4f}'.format(best_loss) + endl)
     # load best model weights
