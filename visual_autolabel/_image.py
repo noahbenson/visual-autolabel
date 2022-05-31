@@ -96,15 +96,24 @@ class HCPVisualDataset(Dataset):
                    'prf_eccentricity':(0,12),
                    'prf_radius':(0,4),
                    'prf_variance_explained': (0,1)}
+    tract_layers = {'OR':  (0, 0.25),
+                    'VOF': (0, 0.25),
+                    'curvature': (-1,1), 
+                    'convexity':(-2,2),
+                    'thickness':(1,6),
+                    'surface_area':(0,3)}
     both_layers = {k:v
                    for d in (anat_layers, func_layers)
-                   for (k,v) in d.items()}
+                   for (k,v) in d.items()
+                   if k in ('prf_polar_angle', 'prf_eccentricity',
+                            'curvature', 'convexity')}
     layer_index = {k:ii for (ii,k) in enumerate(both_layers.keys())}
     saved_image_size = saved_image_size
     default_image_size = default_image_size
     def __init__(self, sids, features='func',
                  image_size=default_image_size,
-                 cache_path=None):
+                 cache_path=None,
+                 tract_path=None):
         self.sids = np.array(sids)
         self.image_size = image_size
         if isinstance(features, tuple):
@@ -118,6 +127,7 @@ class HCPVisualDataset(Dataset):
             raise ValueError(f"features must be 'func', 'anat', or 'both'")
         self.cache_path = cache_path
         self._cache = {}
+        self.tract_path = tract_path
     @property
     def feature_count(self):
         """Returns the number of features (channels) in the dataset's images.
@@ -178,16 +188,18 @@ class HCPVisualDataset(Dataset):
     def __len__(self):
         return len(self.sids)
     def __getitem__(self, k):
-        (p,f,b,s) = self.images(self.sids[k],
-                                image_size=self.image_size, 
-                                cache=self._cache,
-                                cache_path=self.cache_path)
+        (p,f,b,t,s) = self.images(self.sids[k],
+                                  image_size=self.image_size, 
+                                  cache=self._cache,
+                                  cache_path=self.cache_path,
+                                  tract_path=self.tract_path)
         if isinstance(self.features, tuple):
             f = np.concatenate([p,f], axis=-1)
             p = f[..., [self.layer_index[k] for k in self.features]]
         else:
             p = (f if self.features == 'func' else
                  p if self.features == 'anat' else
+                 t if self.features == 'tract' else
                  b)
         return self.fwd_transform(p, s)
     def get(self, k):
@@ -213,7 +225,7 @@ class HCPVisualDataset(Dataset):
         return im
     @classmethod
     def images(self, sid, image_size=default_image_size, 
-               cache={}, cache_path=None):
+               cache={}, cache_path=None, tract_path=None):
         """Returns the input and label images for the given subject-ID.
 
         Returns a tuple `(input_image, label_image)` for the given subject-ID
@@ -226,23 +238,30 @@ class HCPVisualDataset(Dataset):
         if cache_path is not None:
             iflnm = os.path.join(cache_path, 'images', '%s_anat.png' % sid)
             fflnm = os.path.join(cache_path, 'images', '%s_func.png' % sid)
+            tflnm = os.path.join(cache_path, 'images', '%s_tract.png' % sid)
             oflnm = os.path.join(cache_path, 'images', '%s_v123.png' % sid)
-
             try:
                 with PIL.Image.open(iflnm) as f: im = np.array(f)
                 param = im
                 with PIL.Image.open(fflnm) as f: im = np.array(f)
                 fparam = im
+                if tract_path is not None:
+                    with PIL.Image.open(fflnm) as f: im = np.array(f)
+                    tparam = im
+                else:
+                    tparam = None
                 with PIL.Image.open(oflnm) as f: im = np.array(f)
                 sol = im
                 cache[sid] = (param, fparam, sol)
                 found = True
             except Exception: pass
         # If we haven't found the images in cache, generate them now.
-        if not found: (param,fparam,sol) = self.generate_images(sid)
+        if not found:
+            ims = self.generate_images(sid, tract_path=tract_path)
+            (param,fparam,tparam,sol) = ims
         # Resize the images if need-be.
-        (param,fparam,sol) = [self.resize_image(im, image_size)
-                              for im in (param, fparam, sol)]
+        (param,fparam,tparam,sol) = [self.resize_image(im, image_size)
+                                     for im in (param, fparam, tparam, sol)]
         # Make a concatenation of anatomy and functional layers.
         bparam = np.concatenate([param, fparam], axis=-1)
         # Put them in the cache and save them if possible
@@ -257,10 +276,15 @@ class HCPVisualDataset(Dataset):
             flnm = os.path.join(cache_path, 'images', '%s_v123.png' % sid)
             im = np.clip(sol, 0, 255).astype('uint8')
             PIL.Image.fromarray(im).save(flnm)
-        return (param, fparam, bparam, sol)
+            if tparam is not None:
+                flnm = os.path.join(cache_path, 'images', '%s_tract.png' % sid)
+                im = np.clip(tparam, 0, 255).astype('uint8')
+                PIL.Image.fromarray(im).save(flnm)
+        return (param, fparam, bparam, tparam, sol)
     @classmethod
     def generate_images(self, sid, image_size=saved_image_size,
-                        anat_layers=Ellipsis, func_layers=Ellipsis):
+                        anat_layers=Ellipsis, func_layers=Ellipsis,
+                        tract_layers=Ellipsis, tract_path=None):
         """Generates and returns images for a single subject.
 
         Given a subject-id, generates and returns the tuple `(param_image,
@@ -269,13 +293,25 @@ class HCPVisualDataset(Dataset):
         trained.
         """
         dis = default_image_size
-        if anat_layers is Ellipsis: anat_layers = HCPVisualDataset.anat_layers
-        if func_layers is Ellipsis: func_layers = HCPVisualDataset.func_layers
+        if anat_layers is Ellipsis:
+            anat_layers = HCPVisualDataset.anat_layers
+        if func_layers is Ellipsis:
+            func_layers = HCPVisualDataset.func_layers
+        if tract_layers is Ellipsis:
+            tract_layers = HCPVisualDataset.tract_layers
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         # Get the subject and make a figure.
         sub = ny.data['hcp_lines'].subjects[sid]
         ms  = {h:ny.to_flatmap('occipital_pole', sub.hemis[h])
                for h in ['lh','rh']}
+        # TODO: load in the VOF and OR properties for the subject and add them
+        # to the maps:
+        #  lh_prop_vof = ny.load(...)
+        #  lh_prop_or  = ny.load(...)
+        #  rh_prop_vof = ny.load(...)
+        #  rh_prop_or  = ny.load(...)
+        #  ms['lh'] = ms['lh'].with_prop(VOF=lh_prop_vof, OR=lh_prop_or)
+        #  ms['rh'] = ms['rh'].with_prop(VOF=rh_prop_vof, OR=rh_prop_or)
         ims = []
         for (p,(mn,mx)) in anat_layers.items():
             (fig,axs) = plt.subplots(1,2, figsize=(2,1), dpi=dis)
@@ -320,6 +356,29 @@ class HCPVisualDataset(Dataset):
             image = np.reshape(image, (dis, dis*2, 3))
             ims.append(image[:,:,0])
         fparam = np.transpose(ims, (1,2,0))
+        # Now the tract images. If there is no tract_path, we don't make theese.
+        if tract_path is None:
+            ims = []
+            for (p,(mn,mx)) in tract_layers.items():
+                (fig,axs) = plt.subplots(1,2, figsize=(2,1), dpi=dis)
+                fig.subplots_adjust(0,0,1,1,0,0)
+                fig.set_facecolor('k')
+                for (h,ax) in zip(['lh','rh'], axs):
+                    ax.axis('off')
+                    ax.set_facecolor('k')
+                    ny.cortex_plot(ms[h], color=p, axes=ax,
+                                   cmap='gray', vmin=mn, vmax=mx)
+                canvas = FigureCanvasAgg(fig)
+                canvas.draw()
+                bufstr = canvas.tostring_rgb()
+                plt.close(fig)
+                image = np.frombuffer(bufstr, dtype='uint8')
+                image = np.reshape(image, (dis, dis*2, 3))
+                ims.append(image[:,:,0])
+            tparam = np.transpose(ims, (1,2,0))
+        else:
+            # If there's no tract path, we just don't create this image.
+            tparam = None
         # Repeat for the solution image
         ims = []
         for lbl in [1,2,3]:
@@ -339,7 +398,7 @@ class HCPVisualDataset(Dataset):
             image = np.reshape(image, (dis, dis*2, 3))
             ims.append(image[:,:,0])
         sol = np.transpose(ims, (1,2,0))
-        return (param, fparam, sol)
+        return (param, fparam, tparam, sol)
 def make_datasets(features=None,
                   sids=sids,
                   partition=default_partition,
@@ -671,3 +730,113 @@ class UNet(torch.nn.Module):
         out = self.conv_last(x)
         if self.apply_sigmoid: out = torch.sigmoid(out)
         return out
+    def predict(self, dataset, sidx, prefix='model', subject=None,
+                flatmaps=None):
+        """Convenience function for making predictions.
+
+        This function does the following:
+         - extracts the subject and images from the dataset;
+         - runs the model prediction on them
+         - interpolates the model predictions back onto the cortical surface;
+         - returns a subject object with the <prefix>_visual_area property
+           on both hemispheres.
+        """
+        sid = dataset.sids[sidx]
+        if subject is None:
+            sub = ny.data['hcp_lines'].subjects[sid]
+        else:
+            sub = subject
+        (img,lbl) = dataset[sidx]
+        out = self.forward(img.float()[None,:,:,:])
+        if not self.apply_sigmoid:
+            out = torch.sigmoid(out)
+        (ll, rl) = self.lblimg_to_property(img, out, sub, flatmaps=flatmaps)
+        return sub.with_hemi(lh=sub.lh.with_prop({(prefix+'_visual_area'):ll}),
+                             rh=sub.rh.with_prop({(prefix+'_visual_area'):rl}))
+    @classmethod
+    def reverse_image(self, tmpl, img, sid, null=np.nan, flatmaps=None):
+        """Returns image data as a set of values on the cortical surface.
+
+        This function converts image data from images oriented for CNN training,
+        i.e. the images returned by `generate_images` and related functions,
+        back into cortical surface data.
+
+        Returns `(lh_matrix, rh_matrix)` where each matrix has one row per
+        vertex in the associated hemisphere and one column per channel of `im`.
+        """
+        if isinstance(sid, tuple):
+            (lh,rh) = sid
+            hems = {'lh':lh, 'rh':rh}
+        elif pimms.is_map(sid):
+            hems = sid
+        else:
+            if ny.is_subject(sid): sub = sid
+            else: sub = ny.data['hcp_lines'].subjects[sid]
+            hems = {h: sub.hemis[h] for h in ['lh','rh']}
+        if isinstance(flatmaps, tuple):
+            (lm,rm) = flatmaps
+            ms = {'lh':lm, 'rh':rm}
+        else:
+            ismap = pimms.is_map(flatmaps)
+            if ismap and len(flatmaps) == 2:
+                ms = flatmaps
+            else:
+                ms = {h:ny.to_flatmap('occipital_pole', hem)
+                      for (h,hem) in hems.items()}
+            if ismap and len(flatmaps) == 0:
+                flatmaps['lh'] = ms['lh']
+                flatmaps['rh'] = ms['rh']
+        if torch.is_tensor(img):
+            img = img.detach().numpy()
+            if len(img.shape) == 4 and img.shape[0] == 1: img = img[0]
+            img = np.transpose(img, [1,2,0])
+        else: img = np.asarray(img)
+        if torch.is_tensor(tmpl):
+            tmpl = tmpl.detach().numpy()
+            tmpl = np.transpose(tmpl, [1,2,0])
+        else: tmpl = np.asarray(tmpl)
+        # We divide the image into two parts and find the hemisphere in each.
+        (rs,cs) = img.shape[:2]
+        hc = int(round(cs / 2))
+        (lim,rim) = (img[:,:hc], img[:,hc:])
+        (ltmp,rtmp) = (tmpl[:,:hc], tmpl[:,hc:])
+        props = []
+        for (im,tmp,h) in zip([lim,rim], [ltmp,rtmp], ['lh','rh']):
+            (ii,jj) = np.where(np.any(tmp != 0, axis=-1))
+            (rmin,rmax) = (np.min(ii), np.max(ii))
+            (cmin,cmax) = (np.min(jj), np.max(jj))
+            fmap = ms[h]
+            hem = sub.hemis[h]
+            n = hem.vertex_count
+            (c,r) = [(u - mn) / (mx - mn)
+                     for u in fmap.coordinates
+                     for (mn,mx) in [(np.min(u), np.max(u))]]
+            r = 1 - r
+            r = r * (rmax - rmin - 2) + rmin + 1
+            c = c * (cmax - cmin - 2) + cmin + 1
+            r = np.round(r).astype(int)
+            c = np.round(c).astype(int)
+            prop = np.full([n] + ([im.shape[2]] if len(im.shape) > 2 else []),
+                           null, dtype=im.dtype)
+            prop[fmap.labels, ...] = im[(r,c)]
+            props.append(prop)
+        return tuple(props)
+    @classmethod
+    def lblimg_to_property(self, tmpl, img, sid, flatmaps=None):
+        """Returns a label property for both hemispheres from a label image.
+
+        This function converts image data from predicted label images from a
+        trained CNN.
+
+        Returns `(lh_label, rh_label)` where each element is a vector of integer
+        labels, one per vertex in the associated hemisphere, representing the
+        vertex's label in the image.
+        """
+        (lp,rp) = self.reverse_image(tmpl, img, sid, null=0, flatmaps=flatmaps)
+        (lp,rp) = [np.hstack([np.zeros((len(p), 1)), p[:,:3] + p[:,3:]])
+                   for p in (lp,rp)]
+        lp = np.argmax(lp >= 0.5, axis=1)
+        rp = np.argmax(rp >= 0.5, axis=1)
+        return (lp, rp)
+        
+            
