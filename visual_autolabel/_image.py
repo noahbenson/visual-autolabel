@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 ################################################################################
 # visual_autolabel/_image.py
@@ -8,7 +9,7 @@
 
 #-------------------------------------------------------------------------------
 # External Libries
-import os, sys, time, copy, pimms, PIL, cv2, warnings, torch
+import os, sys, time, copy, pimms, PIL, warnings, torch
 import numpy as np
 import scipy as sp
 import nibabel as nib
@@ -99,9 +100,7 @@ class HCPVisualDataset(Dataset):
     tract_layers = {'OR':  (0, 0.25),
                     'VOF': (0, 0.25),
                     'curvature': (-1,1), 
-                    'convexity':(-2,2),
-                    'thickness':(1,6),
-                    'surface_area':(0,3)}
+                    'convexity':(-2,2)}
     both_layers = {k:v
                    for d in (anat_layers, func_layers)
                    for (k,v) in d.items()
@@ -246,13 +245,13 @@ class HCPVisualDataset(Dataset):
                 with PIL.Image.open(fflnm) as f: im = np.array(f)
                 fparam = im
                 if tract_path is not None:
-                    with PIL.Image.open(fflnm) as f: im = np.array(f)
+                    with PIL.Image.open(tflnm) as f: im = np.array(f)
                     tparam = im
                 else:
                     tparam = None
                 with PIL.Image.open(oflnm) as f: im = np.array(f)
                 sol = im
-                cache[sid] = (param, fparam, sol)
+                cache[sid] = (param, fparam, tparam, sol)
                 found = True
             except Exception: pass
         # If we haven't found the images in cache, generate them now.
@@ -304,14 +303,6 @@ class HCPVisualDataset(Dataset):
         sub = ny.data['hcp_lines'].subjects[sid]
         ms  = {h:ny.to_flatmap('occipital_pole', sub.hemis[h])
                for h in ['lh','rh']}
-        # TODO: load in the VOF and OR properties for the subject and add them
-        # to the maps:
-        #  lh_prop_vof = ny.load(...)
-        #  lh_prop_or  = ny.load(...)
-        #  rh_prop_vof = ny.load(...)
-        #  rh_prop_or  = ny.load(...)
-        #  ms['lh'] = ms['lh'].with_prop(VOF=lh_prop_vof, OR=lh_prop_or)
-        #  ms['rh'] = ms['rh'].with_prop(VOF=rh_prop_vof, OR=rh_prop_or)
         ims = []
         for (p,(mn,mx)) in anat_layers.items():
             (fig,axs) = plt.subplots(1,2, figsize=(2,1), dpi=dis)
@@ -357,7 +348,19 @@ class HCPVisualDataset(Dataset):
             ims.append(image[:,:,0])
         fparam = np.transpose(ims, (1,2,0))
         # Now the tract images. If there is no tract_path, we don't make theese.
-        if tract_path is None:
+        if tract_path is not None:
+            filename = os.path.join(tract_path, str(sid), "lh.VOF_normalized.mgz")
+            lh_prop_vof = ny.load(filename)
+            filename = os.path.join(tract_path, str(sid), "lh.OR_normalized.mgz")
+            lh_prop_or  = ny.load(filename)
+            filename = os.path.join(tract_path, str(sid), "rh.VOF_normalized.mgz")
+            rh_prop_vof = ny.load(filename)
+            filename = os.path.join(tract_path, str(sid), "rh.OR_normalized.mgz")
+            rh_prop_or  = ny.load(filename)
+            ms['lh'] = ms['lh'].with_prop(VOF=lh_prop_vof[ms['lh'].labels],
+                                          OR=lh_prop_or[ms['lh'].labels])
+            ms['rh'] = ms['rh'].with_prop(VOF=rh_prop_vof[ms['rh'].labels],
+                                          OR=rh_prop_or[ms['rh'].labels])
             ims = []
             for (p,(mn,mx)) in tract_layers.items():
                 (fig,axs) = plt.subplots(1,2, figsize=(2,1), dpi=dis)
