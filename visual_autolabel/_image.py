@@ -8,7 +8,7 @@
 
 #-------------------------------------------------------------------------------
 # External Libries
-import os, sys, time, copy, pimms, PIL, cv2, warnings, torch
+import os, sys, time, copy, pimms, PIL, warnings, torch
 import numpy as np
 import scipy as sp
 import nibabel as nib
