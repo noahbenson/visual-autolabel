@@ -117,13 +117,13 @@ class HCPVisualDataset(Dataset):
         self.image_size = image_size
         if isinstance(features, tuple):
             for f in features:
-                if f not in self.both_layers:
+                if f not in self.both_layers and f not in self.tract_layers:
                     raise ValueError(f"unrecognized feature: {f}")
             self.features = features
-        if features in ('func', 'anat', 'both'):
+        if features in ('func', 'anat', 'both', 'tract'):
             self.features = features
         else:
-            raise ValueError(f"features must be 'func', 'anat', or 'both'")
+            raise ValueError(f"features must be func, anat, both, or tract")
         self.cache_path = cache_path
         self._cache = {}
         self.tract_path = tract_path
@@ -406,7 +406,8 @@ def make_datasets(features=None,
                   sids=sids,
                   partition=default_partition,
                   cache_path=None,
-                  image_size=default_image_size):
+                  image_size=default_image_size,
+                  tract_path=None):
     """Returns a mapping of training and validation datasets.
 
     The mapping returned by `make_datasets()` contains, at the top level, the
@@ -446,6 +447,7 @@ def make_datasets(features=None,
     def curry_fn(sids, feat):
         return (lambda:HCPVisualDataset(sids, features=feat,
                                         cache_path=cache_path,
+                                        tract_path=tract_path,
                                         image_size=image_size))
     if features is None:
         return pyr.pmap(
@@ -459,6 +461,7 @@ def make_dataloaders(features=None,
                      sids=sids,
                      partition=default_partition,
                      cache_path=None,
+                     tract_path=None,
                      image_size=None,
                      datasets=None, 
                      shuffle=True,
@@ -515,7 +518,8 @@ def make_dataloaders(features=None,
     if datasets is None:
         # We need to make the datasets using the other options.
         datasets = make_datasets(features=features, partition=partition,
-                                 image_size=image_size, cache_path=cache_path)
+                                 image_size=image_size, cache_path=cache_path,
+                                 tract_path=tract_path)
     elif not pimms.is_map(datasets):
         raise ValueError("datasets must be a mapping or None")
     # If features is None, then we may need to produce a mapping of mappings of
@@ -525,6 +529,7 @@ def make_dataloaders(features=None,
             def curry_fn(dset):
                 return (lambda:make_dataloaders(datasets=dset,
                                                 cache_path=cache_path,
+                                                tract_path=tract_path,
                                                 image_size=image_size,
                                                 shuffle=shuffle,
                                                 batch_size=batch_size))
