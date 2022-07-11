@@ -251,7 +251,6 @@ class HCPVisualDataset(Dataset):
                     tparam = None
                 with PIL.Image.open(oflnm) as f: im = np.array(f)
                 sol = im
-                cache[sid] = (param, fparam, tparam, sol)
                 found = True
             except Exception: pass
         # If we haven't found the images in cache, generate them now.
@@ -264,7 +263,7 @@ class HCPVisualDataset(Dataset):
         # Make a concatenation of anatomy and functional layers.
         bparam = np.concatenate([param, fparam], axis=-1)
         # Put them in the cache and save them if possible
-        cache[sid] = (param, fparam, bparam, sol)
+        cache[sid] = (param, fparam, bparam, tparam, sol)
         if cache_path is not None and not found:
             flnm = os.path.join(cache_path, 'images', '%s_anat.png' % sid)
             im = np.clip(param, 0, 255).astype('uint8')
