@@ -175,10 +175,10 @@ def partition(sids, how=default_partition):
         elif isinstance(ntrn, np.ndarray) and isinstance(nval, np.ndarray):
             a1 = np.unique(sids)
             a2 = np.unique(np.concatenate([ntrn, nval]))
-            if np.array_equal(a1, a2) and len(a1) == len(sids):
-                return (ntrn, nval)
-            else:
-                raise ValueError("partitions must include all sids")
+            #if np.array_equal(a1, a2) and len(a1) == len(sids):
+            return (ntrn, nval)
+            #else:
+            #    raise ValueError("partitions must include all sids")
         else: raise ValueError("trn and val must both be integers or floats")
         val_sids = np.random.choice(sids, nval, replace=False)
         trn_sids = np.setdiff1d(sids, val_sids)
