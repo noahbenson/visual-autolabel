@@ -568,7 +568,7 @@ def run_modelplan(modelplan, **kw):
         # Update the cache-path if we have one cache path.
         if model_cache_path is not None:
             cpath = os.path.join(model_cache_path, 'round%02d' % (ii + 1,))
-            if not os.path.isdir(cpath): os.makedirs(cpath, mode=0o755)
+            if not os.path.isdir(cpath): os.makedirs(cpath, mode=0o775)
             kw['model_cache_path'] = cpath
        # Run the buiid-model function.
         opts = {k:kw[k] for k in build_sig.parameters.keys() if k in kw}
