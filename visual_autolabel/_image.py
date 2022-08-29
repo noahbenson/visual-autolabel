@@ -100,7 +100,9 @@ class HCPVisualDataset(Dataset):
     tract_layers = {'OR':  (0, 0.25),
                     'VOF': (0, 0.25),
                     'curvature': (-1,1), 
-                    'convexity':(-2,2)}
+                    'convexity':(-2,2),
+                    'thickness':(1,6),
+                    'surface_areas':(0,3)}
     both_layers = {k:v
                    for d in (anat_layers, func_layers)
                    for (k,v) in d.items()
@@ -136,8 +138,12 @@ class HCPVisualDataset(Dataset):
         """
         if isinstance(self.features, tuple):
             return len(self.features)
+        elif self.features == 'tract':
+            return len(self.tract_layers)
+        elif self.features == 'both':
+            return len(self.both_layers)
         else:
-            return 8 if self.features == 'both' else 4
+            return 4
     @property
     def class_count(self):
         """Returns the number of classes (output labels) in the dataset.
