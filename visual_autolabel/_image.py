@@ -102,7 +102,11 @@ class HCPVisualDataset(Dataset):
                     'curvature': (-1,1), 
                     'convexity':(-2,2),
                     'thickness':(1,6),
-                    'surface_areas':(0,3)}
+                    'surface_area':(0,3)}
+    other_layers = {'myelin': (0, 50),
+                    'areal_distortion': (-1,1),
+                    'pial_curvature': (-1,1),
+                    'white_curvature': (-1,1)}
     both_layers = {k:v
                    for d in (anat_layers, func_layers)
                    for (k,v) in d.items()
@@ -193,11 +197,11 @@ class HCPVisualDataset(Dataset):
     def __len__(self):
         return len(self.sids)
     def __getitem__(self, k):
-        (p,f,b,t,s) = self.images(self.sids[k],
-                                  image_size=self.image_size, 
-                                  cache=self._cache,
-                                  cache_path=self.cache_path,
-                                  tract_path=self.tract_path)
+        (p,f,b,t,x,s) = self.images(self.sids[k],
+                                    image_size=self.image_size, 
+                                    cache=self._cache,
+                                    cache_path=self.cache_path,
+                                    tract_path=self.tract_path)
         if isinstance(self.features, tuple):
             f = np.concatenate([p,f], axis=-1)
             p = f[..., [self.layer_index[k] for k in self.features]]
@@ -244,6 +248,7 @@ class HCPVisualDataset(Dataset):
             iflnm = os.path.join(cache_path, 'images', '%s_anat.png' % sid)
             fflnm = os.path.join(cache_path, 'images', '%s_func.png' % sid)
             tflnm = os.path.join(cache_path, 'images', '%s_tract.png' % sid)
+            xflnm = os.path.join(cache_path, 'images', '%s_other.png' % sid)
             oflnm = os.path.join(cache_path, 'images', '%s_v123.png' % sid)
             try:
                 with PIL.Image.open(iflnm) as f: im = np.array(f)
@@ -255,6 +260,8 @@ class HCPVisualDataset(Dataset):
                     tparam = im
                 else:
                     tparam = None
+                with PIL.Image.open(xflnm) as f: im = np.array(f)
+                xparam = f
                 with PIL.Image.open(oflnm) as f: im = np.array(f)
                 sol = im
                 found = True
@@ -262,20 +269,24 @@ class HCPVisualDataset(Dataset):
         # If we haven't found the images in cache, generate them now.
         if not found:
             ims = self.generate_images(sid, tract_path=tract_path)
-            (param,fparam,tparam,sol) = ims
+            (param,fparam,tparam,xparam,sol) = ims
         # Resize the images if need-be.
-        (param,fparam,tparam,sol) = [self.resize_image(im, image_size)
-                                     for im in (param, fparam, tparam, sol)]
+        (param,fparam,tparam,xparam,sol) = [
+            None if im is None else self.resize_image(im, image_size)
+            for im in (param, fparam, tparam, xparam, sol)]
         # Make a concatenation of anatomy and functional layers.
         bparam = np.concatenate([param, fparam], axis=-1)
         # Put them in the cache and save them if possible
-        cache[sid] = (param, fparam, bparam, tparam, sol)
+        cache[sid] = (param, fparam, bparam, tparam, xparam, sol)
         if cache_path is not None and not found:
             flnm = os.path.join(cache_path, 'images', '%s_anat.png' % sid)
             im = np.clip(param, 0, 255).astype('uint8')
             PIL.Image.fromarray(im).save(flnm)
             flnm = os.path.join(cache_path, 'images', '%s_func.png' % sid)
             im = np.clip(fparam, 0, 255).astype('uint8')
+            PIL.Image.fromarray(im).save(flnm)
+            flnm = os.path.join(cache_path, 'images', '%s_other.png' % sid)
+            im = np.clip(xparam, 0, 255).astype('uint8')
             PIL.Image.fromarray(im).save(flnm)
             flnm = os.path.join(cache_path, 'images', '%s_v123.png' % sid)
             im = np.clip(sol, 0, 255).astype('uint8')
@@ -284,11 +295,12 @@ class HCPVisualDataset(Dataset):
                 flnm = os.path.join(cache_path, 'images', '%s_tract.png' % sid)
                 im = np.clip(tparam, 0, 255).astype('uint8')
                 PIL.Image.fromarray(im).save(flnm)
-        return (param, fparam, bparam, tparam, sol)
+        return (param, fparam, bparam, tparam, xparam, sol)
     @classmethod
     def generate_images(self, sid, image_size=saved_image_size,
                         anat_layers=Ellipsis, func_layers=Ellipsis,
-                        tract_layers=Ellipsis, tract_path=None):
+                        tract_layers=Ellipsis, tract_path=None,
+                        other_layers=Ellipsis):
         """Generates and returns images for a single subject.
 
         Given a subject-id, generates and returns the tuple `(param_image,
@@ -303,6 +315,8 @@ class HCPVisualDataset(Dataset):
             func_layers = HCPVisualDataset.func_layers
         if tract_layers is Ellipsis:
             tract_layers = HCPVisualDataset.tract_layers
+        if other_layers is Ellipsis:
+            other_layers = HCPVisualDataset.other_layers
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         # Get the subject and make a figure.
         sub = ny.data['hcp_lines'].subjects[sid]
@@ -352,6 +366,25 @@ class HCPVisualDataset(Dataset):
             image = np.reshape(image, (dis, dis*2, 3))
             ims.append(image[:,:,0])
         fparam = np.transpose(ims, (1,2,0))
+        # Repeat for the "other" param image
+        ims = []
+        for (p,(mn,mx)) in other_layers.items():
+            (fig,axs) = plt.subplots(1,2, figsize=(2,1), dpi=dis)
+            fig.subplots_adjust(0,0,1,1,0,0)
+            fig.set_facecolor('k')
+            for (h,ax) in zip(['lh','rh'], axs):
+                ax.axis('off')
+                ax.set_facecolor('k')
+                ny.cortex_plot(ms[h], color=pp, axes=ax,
+                               cmap='gray', vmin=mn, vmax=mx)
+            canvas = FigureCanvasAgg(fig)
+            canvas.draw()
+            bufstr = canvas.tostring_rgb()
+            plt.close(fig)
+            image = np.frombuffer(bufstr, dtype='uint8')
+            image = np.reshape(image, (dis, dis*2, 3))
+            ims.append(image[:,:,0])
+        xparam = np.transpose(ims, (1,2,0))
         # Now the tract images. If there is no tract_path, we don't make theese.
         if tract_path is not None:
             filename = os.path.join(tract_path, str(sid), "lh.VOF_normalized.mgz")
@@ -406,7 +439,7 @@ class HCPVisualDataset(Dataset):
             image = np.reshape(image, (dis, dis*2, 3))
             ims.append(image[:,:,0])
         sol = np.transpose(ims, (1,2,0))
-        return (param, fparam, tparam, sol)
+        return (param, fparam, tparam, xparam, sol)
 def make_datasets(features=None,
                   sids=sids,
                   partition=default_partition,
