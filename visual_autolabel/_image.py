@@ -103,10 +103,10 @@ class HCPVisualDataset(Dataset):
                     'convexity':(-2,2),
                     'thickness':(1,6),
                     'surface_area':(0,3)}
-    other_layers = {'myelin': (0, 50),
+    other_layers = {'myelin': (0, 5),
                     'areal_distortion': (-1,1),
-                    'pial_curvature': (-1,1),
-                    'white_curvature': (-1,1)}
+                    'curvature': (-1,1),
+                    'thickness': (-1,1)}
     both_layers = {k:v
                    for d in (anat_layers, func_layers)
                    for (k,v) in d.items()
@@ -375,7 +375,7 @@ class HCPVisualDataset(Dataset):
             for (h,ax) in zip(['lh','rh'], axs):
                 ax.axis('off')
                 ax.set_facecolor('k')
-                ny.cortex_plot(ms[h], color=pp, axes=ax,
+                ny.cortex_plot(ms[h], color=p, axes=ax,
                                cmap='gray', vmin=mn, vmax=mx)
             canvas = FigureCanvasAgg(fig)
             canvas.draw()
