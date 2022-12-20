@@ -276,8 +276,6 @@ class HCPVisualDataset(Dataset):
             for im in (param, fparam, tparam, xparam, sol)]
         # Make a concatenation of anatomy and functional layers.
         bparam = np.concatenate([param, fparam], axis=-1)
-        # Put them in the cache and save them if possible
-        cache[sid] = (param, fparam, bparam, tparam, xparam, sol)
         if cache_path is not None and not found:
             flnm = os.path.join(cache_path, 'images', '%s_anat.png' % sid)
             im = np.clip(param, 0, 255).astype('uint8')
@@ -295,6 +293,13 @@ class HCPVisualDataset(Dataset):
                 flnm = os.path.join(cache_path, 'images', '%s_tract.png' % sid)
                 im = np.clip(tparam, 0, 255).astype('uint8')
                 PIL.Image.fromarray(im).save(flnm)
+        # For tract images, we take just the OR/VOF layers and append
+        # them to the anat layers.
+        if tparam is not None:
+            tparam = np.concatenate([param, tparam[:,:,:2]], axis=-1)
+        # Put them in the cache and save them if possible
+        if cache is not None:
+            cache[sid] = (param, fparam, bparam, tparam, xparam, sol)
         return (param, fparam, bparam, tparam, xparam, sol)
     @classmethod
     def generate_images(self, sid, image_size=saved_image_size,

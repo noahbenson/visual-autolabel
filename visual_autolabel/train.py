@@ -13,7 +13,7 @@ use in and with the `visual_autolabel` library.
 
 #-------------------------------------------------------------------------------
 # Global Configuration Items
-from .config import default_partition
+from .config import (default_partition, default_image_size, saved_image_size)
 
 #-------------------------------------------------------------------------------
 # Logging
@@ -245,31 +245,66 @@ def train_model(model, optimizer, scheduler, dataloaders,
     model.load_state_dict(best_model_wts)
     return (model, best_loss, best_dice)
 
-def _make_dataloaders_and_model(dataloaders=None,
-                                features='anat',
+def _make_dataloaders_and_model(in_features=None,  # make_dataloader args...
+                                out_features=None,
+                                dataloaders=None,
+                                features=None,
                                 partition=default_partition,
+                                raters=('A1', 'A2', 'A3', 'A4'),
+                                subjects=Ellipsis,
+                                exclusions=Ellipsis,
+                                image_size=default_image_size,
+                                transform=None,
+                                input_transform=None,
+                                output_transform=None,
+                                hemis='lr',
+                                cache_image_size=saved_image_size,
                                 data_cache_path=None,
-                                tract_path=None,
-                                image_size=None,
-                                datasets=None,
+                                overwrite=False,
+                                mkdirs=True,
+                                mkdir_mode=0o775,
+                                multiproc=True,
+                                timeout=None,
+                                dtype='float32',
+                                memcache=True,
+                                normalization=None,
+                                flatmap_cache=None,
+                                datasets=None, 
                                 shuffle=True,
                                 batch_size=5,
-                                model=None,
-                                pretrained_resnet=False,
-                                middle_branches=False,
-                                apply_sigmoid=False):
+                                model=None,  # model args...
+                                base_model='resnet18',
+                                pretrained=False,
+                                logits=None):
     import torch
     from .util import (is_partition, trndata, valdata)
-    from ._image import make_dataloaders
+    from .image import make_dataloaders
     # First, make the dataloaders.
     if not is_partition(dataloaders):
         if dataloaders is None: dataloaders = make_dataloaders
-        dataloaders = dataloaders(features=features,
+        dataloaders = dataloaders(in_features, out_features,
+                                  subjects=subjects,
+                                  raters=raters,
+                                  features=features,
+                                  cache_path=data_cache_path,
+                                  image_size=image_size,
+                                  exclusions=exclusions,
+                                  transform=transform,
+                                  input_transform=input_transform,
+                                  output_transform=output_transform,
+                                  hemis=hemis,
+                                  cache_image_size=cache_image_size,
+                                  overwrite=overwrite,
+                                  mkdirs=mkdirs,
+                                  mkdir_mode=mkdir_mode,
+                                  multiproc=multiproc,
+                                  timeout=timeout,
+                                  dtype=dtype,
+                                  memcache=memcache,
+                                  normalization=normalization,
+                                  flatmap_cache=flatmap_cache,
                                   partition=partition,
                                   datasets=datasets,
-                                  image_size=image_size,
-                                  cache_path=data_cache_path,
-                                  tract_path=tract_path,
                                   shuffle=shuffle,
                                   batch_size=batch_size)
     dl_trn = trndata(dataloaders)
@@ -279,45 +314,64 @@ def _make_dataloaders_and_model(dataloaders=None,
         start_model = model
     else:
         if model is None:
-            from ._image import UNet
+            from .image import UNet
             model = UNet
         start_model = model(dl_trn.dataset.feature_count,
-                            dl_trn.dataset.class_count,
-                            pretrained_resnet=pretrained_resnet,
-                            middle_branches=middle_branches,
-                            apply_sigmoid=apply_sigmoid)
+                            dl_trn.dataset.segment_count,
+                            base_model=base_model,
+                            pretrained=pretrained,
+                            logits=logits)
     return (dataloaders, start_model)
-
-def build_model(# Step 1: Build DataLoaders.
-                dataloaders=None,
-                features='anat',
-                partition=default_partition,
-                data_cache_path=None,
-                image_size=None,
-                datasets=None,
-                shuffle=True,
-                batch_size=5,
-                # Step 2: Build Model.
-                model=None,
-                pretrained_resnet=False,
-                middle_branches=False,
-                apply_sigmoid=False,
-                # Step 3: Optimizer and Scheduler.
-                lr=0.004,
-                step_size=None,
-                gamma=0.90,
-                # Step 4: Training.
-                nthreads=Ellipsis,
-                nice=10,
-                num_epochs=10,
-                model_cache_path=None,
-                device=None,
-                hlines=False,
-                logger=print,
-                endl='',
-                bce_weight=0.5,
-                reweight=True,
-                smoothing=1):
+def build_model(
+        # Step 1: Build DataLoaders.
+        in_features=None,
+        out_features=None,
+        dataloaders=None,
+        features=None,
+        partition=default_partition,
+        raters=('A1', 'A2', 'A3', 'A4'),
+        subjects=Ellipsis,
+        exclusions=Ellipsis,
+        image_size=default_image_size,
+        transform=None,
+        input_transform=None,
+        output_transform=None,
+        hemis='lr',
+        cache_image_size=saved_image_size,
+        data_cache_path=None,
+        overwrite=False,
+        mkdirs=True,
+        mkdir_mode=0o775,
+        multiproc=True,
+        timeout=None,
+        dtype='float32',
+        memcache=True,
+        normalization=None,
+        flatmap_cache=None,
+        datasets=None, 
+        shuffle=True,
+        batch_size=5,
+        # Step 2: Build Model.
+        model=None,
+        base_model='resnet18',
+        pretrained=False,
+        logits=None,
+        # Step 3: Optimizer and Scheduler.
+        lr=0.004,
+        step_size=None,
+        gamma=0.90,
+        # Step 4: Training.
+        nthreads=Ellipsis,
+        nice=10,
+        num_epochs=10,
+        model_cache_path=None,
+        device=None,
+        hlines=False,
+        logger=print,
+        endl='',
+        bce_weight=0.5,
+        reweight=True,
+        smoothing=1):
     """Creates, trains, and returns a PyTorch model.
 
     `build_model()` encapsulates the creation of the PyTrch model and the model
@@ -466,18 +520,37 @@ def build_model(# Step 1: Build DataLoaders.
     from .util import is_partition
     # First, create the dataloaders and starting model.
     (dataloaders, start_model) = _make_dataloaders_and_model(
+        in_features=in_features,
+        out_features=out_features,
         dataloaders=dataloaders,
+        subjects=subjects,
+        raters=raters,
         features=features,
-        partition=partition,
         data_cache_path=data_cache_path,
         image_size=image_size,
+        exclusions=exclusions,
+        transform=transform,
+        input_transform=input_transform,
+        output_transform=output_transform,
+        hemis=hemis,
+        cache_image_size=cache_image_size,
+        overwrite=overwrite,
+        mkdirs=mkdirs,
+        mkdir_mode=mkdir_mode,
+        multiproc=multiproc,
+        timeout=timeout,
+        dtype=dtype,
+        memcache=memcache,
+        normalization=normalization,
+        flatmap_cache=flatmap_cache,
+        partition=partition,
         datasets=datasets,
         shuffle=shuffle,
         batch_size=batch_size,
         model=model,
-        pretrained_resnet=pretrained_resnet,
-        middle_branches=middle_branches,
-        apply_sigmoid=apply_sigmoid)
+        base_model=base_model,
+        pretrained=pretrained,
+        logits=logits)
     # Next, create the optimizer.
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, start_model.parameters()),

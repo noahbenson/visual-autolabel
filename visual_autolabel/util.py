@@ -184,7 +184,9 @@ def partition(sids, how=default_partition):
         trn_sids = np.setdiff1d(sids, val_sids)
     elif isinstance(how, str):
         sids = np.sort(sids)
-        trn_ii = np.array([1 if s == '1' else 0 for s in '{0:b}'.format(how)],
+        how = int(how, 16)
+        fmt = f'{{0:0{len(sids)}b}}'
+        trn_ii = np.array([1 if s == '1' else 0 for s in fmt.format(how)],
                           dtype=np.bool)
         trn_sids = sids[trn_ii]
         val_sids = sids[~trn_ii]
