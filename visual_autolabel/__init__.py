@@ -44,7 +44,7 @@ from .util   import (partition, partition_id, is_partition, trndata, valdata,
 #-------------------------------------------------------------------------------
 # Image-based Data and Model
 # And we use the image-based datasets and networks.
-from ._image import (HCPVisualDataset, make_datasets, make_dataloaders, UNet)
+from .image import (HCPLinesDataset, UNet, make_datasets, make_dataloaders)
 
 #-------------------------------------------------------------------------------
 # Model Training
