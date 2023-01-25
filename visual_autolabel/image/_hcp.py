@@ -15,7 +15,6 @@ from collections.abc import (Sequence, Mapping)
 import numpy as np
 import scipy as sp
 import nibabel as nib
-import pyrsistent as pyr
 import neuropythy as ny
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -25,48 +24,32 @@ from torch.utils.data import (Dataset, DataLoader)
 
 # Internal Tools ---------------------------------------------------------------
 
-from ..config import (default_partition, default_image_size, saved_image_size)
-from ..util   import (sids, partition_id, partition as make_partition,
-                      is_partition, trndata, valdata, convrelu)
-
-from ._data   import (ImageCacheDataset, BilateralFlatmapImageCache,
-                      FlatmapFeature)
+from ..config import (
+    sids,
+    default_partition,
+    default_image_size,
+)
+from ..util import (
+    partition_id,
+    partition as make_partition,
+    is_partition,
+    trndata,
+    valdata,
+    convrelu
+)
+from ._data import (
+    ImageCacheDataset,
+    BilateralFlatmapImageCache,
+    FlatmapFeature,
+    LabelFeature,
+    LabelDiffFeature,
+    LabelUnionFeature,
+    LabelIntersectFeature
+)
 
 
 #===============================================================================
 # The HCP Feature Cache
-
-class LabelFeature(FlatmapFeature):
-    """A Feature class that extracts individual labels from properties."""
-    @classmethod
-    def _get_property(cls, property, fmap):
-        (prop, els) = property.split(':')
-        els = tuple(map(int, els.split(' ')))
-        lbls = fmap.property(prop)
-        return np.isin(lbls, els)
-    def get_property(self, fmap):
-        return self._get_property(self.property, fmap)
-class LabelDiffFeature(LabelFeature):
-    """A Feature class that represents the difference between labels."""
-    def get_property(self, fmap):
-        (prop1, prop2) = self.property.split('--')
-        m1 = self._get_property(prop1, fmap)
-        m2 = self._get_property(prop2, fmap)
-        return m1 & ~m2
-class LabelUnionFeature(LabelFeature):
-    """A Feature class that represents the union of labels."""
-    def get_property(self, fmap):
-        (prop1, prop2) = self.property.split('||')
-        m1 = self._get_property(prop1, fmap)
-        m2 = self._get_property(prop2, fmap)
-        return m1 | m2
-class LabelIntersectFeature(LabelFeature):
-    """A Feature class that represents the intersection of labels."""
-    def get_property(self, fmap):
-        (prop1, prop2) = self.property.split('&&')
-        m1 = self._get_property(prop1, fmap)
-        m2 = self._get_property(prop2, fmap)
-        return m1 & m2
 
 class HCPLinesImageCache(BilateralFlatmapImageCache):
     """An ImageCache subclass that handles features of the HCP Occipital Pole.
@@ -134,14 +117,11 @@ class HCPLinesImageCache(BilateralFlatmapImageCache):
         'E3': LabelFeature('visual_sector:4 9 13 17 21 25', 'nearest'),
         'E4': LabelFeature('visual_sector:5 10 14 18 22 26', 'nearest'),
         # Anatomical Features.
-        'myelin':           FlatmapFeature('myelin', 'linear'),
+        'myelin': FlatmapFeature('myelin', 'linear'),
         # The vertex coordinates themselves; we add these in.
-        'x':                FlatmapFeature('midgray_x', 'linear'),
-        'y':                FlatmapFeature('midgray_y', 'linear'),
-        'z':                FlatmapFeature('midgray_z', 'linear')
-        # Diffusion-based Features.
-        #'OR':               FlatmapFeature('OR', 'linear'),
-        #'VOF':              FlatmapFeature('VOF', 'linear'),
+        'x': FlatmapFeature('midgray_x', 'linear'),
+        'y': FlatmapFeature('midgray_y', 'linear'),
+        'z': FlatmapFeature('midgray_z', 'linear')
     }
     @classmethod
     def builtin_features(cls):
@@ -149,33 +129,27 @@ class HCPLinesImageCache(BilateralFlatmapImageCache):
         return dict(BilateralFlatmapImageCache.builtin_features(), **fs)
     @classmethod
     def unpack_target(cls, target):
-        if len(target) == 3:
+        if len(target) == 2:
             if isinstance(target, Mapping):
                 rater = target['rater']
                 sid = target['subject']
-                h = target['hemi']
             else:
-                (rater, sid, h) = target
-        elif len(target) == 2:
-            (target, h) = target
-            if isinstance(target, Mapping):
-                (rater, sid) = (target['rater'], target['subject'])
-            elif len(target[0]) == 2:
                 (rater, sid) = target
-            else:
-                (rater, sid) = (None, target)
         else:
             raise ValueError(
                 f"target for {type(self)}.make_flatmap must be one of: "
-                "(rater,sid,h), ((rater,sid),h), (sid,h)")
-        return (rater, sid, h)
+                "(rater,sid), {'rater':rater, 'subject':sid}")
+        return (rater, sid)
     def cache_filename(self, target, feature):
         rater = target['rater']
         subject = target['subject']
         return os.path.join(feature, f"{rater}_{subject}.pt")
-    def make_flatmap(self, target):
+    def make_flatmap(self, target, view=None):
         # We may have been given (rater, sid, h) or ((rater, sid), h):
-        (rater, sid, h) = self.unpack_target(target)
+        (rater, sid) = self.unpack_target(target)
+        if view is None:
+            raise ValueError("HCPLinesImageCache requires a view")
+        h = view['hemisphere']
         # Get the subject and hemi.
         sub = ny.data['hcp_lines'].subjects[sid]
         hem = sub.hemis[h]
@@ -190,11 +164,12 @@ class HCPLinesImageCache(BilateralFlatmapImageCache):
                 visual_sector=dat['visual_sector'])
         # Make the flatmap:
         fmap = ny.to_flatmap('occipital_pole', hem, radius=np.pi/2.25)
+        fmap = fmap.with_meta(subject_id=sid, rater=rater, hemisphere=h)
         # And return!
         return fmap
     # We overload fill_image so that we can call down then turn NaNs into 0s.
     def fill_image(self, target, feature, im):
-        im = super().fill_image(target, feature, im)
+        super().fill_image(target, feature, im)
         im[torch.isnan(im)] = 0
         return im
 
@@ -212,12 +187,12 @@ class HCPLinesDataset(ImageCacheDataset):
                  raters=('A1', 'A2', 'A3', 'A4'),
                  subjects=Ellipsis,
                  exclusions=Ellipsis,
-                 image_size=default_image_size,
+                 image_size=Ellipsis,
                  transform=None,
                  input_transform=None,
                  output_transform=None,
                  hemis='lr',
-                 cache_image_size=saved_image_size,
+                 cache_image_size=Ellipsis,
                  cache_path=None,
                  overwrite=False,
                  mkdirs=True,
@@ -228,7 +203,7 @@ class HCPLinesDataset(ImageCacheDataset):
                  memcache=True,
                  normalization=None,
                  features=None,
-                 flatmap_cache=None):
+                 flatmap_cache=True):
         # Make an HCPLines Occipital Image Cache object first.
         imcache = HCPLinesImageCache(
             hemis=hemis,
@@ -294,34 +269,18 @@ class HCPLinesDataset(ImageCacheDataset):
             input_transform=input_transform,
             output_transform=output_transform)
 
-# The code used to load tract layers:
-# if tract_path is not None:
-#     filename = os.path.join(tract_path, str(sid), "lh.VOF_normalized.mgz")
-#     lh_prop_vof = ny.load(filename)
-#     filename = os.path.join(tract_path, str(sid), "lh.OR_normalized.mgz")
-#     lh_prop_or  = ny.load(filename)
-#     filename = os.path.join(tract_path, str(sid), "rh.VOF_normalized.mgz")
-#     rh_prop_vof = ny.load(filename)
-#     filename = os.path.join(tract_path, str(sid), "rh.OR_normalized.mgz")
-#     rh_prop_or  = ny.load(filename)
-#     ms['lh'] = ms['lh'].with_prop(VOF=lh_prop_vof[ms['lh'].labels],
-#                                   OR=lh_prop_or[ms['lh'].labels])
-#     ms['rh'] = ms['rh'].with_prop(VOF=rh_prop_vof[ms['rh'].labels],
-#                                   OR=rh_prop_or[ms['rh'].labels])
-#     ims = []
-
 def make_datasets(in_features, out_features,
                   features=None,
                   partition=default_partition,
                   raters=('A1', 'A2', 'A3', 'A4'),
                   subjects=Ellipsis,
                   exclusions=Ellipsis,
-                  image_size=default_image_size,
+                  image_size=Ellipsis,
                   transform=None,
                   input_transform=None,
                   output_transform=None,
                   hemis='lr',
-                  cache_image_size=saved_image_size,
+                  cache_image_size=Ellipsis,
                   cache_path=None,
                   overwrite=False,
                   mkdirs=True,
@@ -331,7 +290,7 @@ def make_datasets(in_features, out_features,
                   dtype='float32',
                   memcache=True,
                   normalization=None,
-                  flatmap_cache=None):
+                  flatmap_cache=True):
     """Returns a mapping of training and validation datasets.
 
     The mapping returned by `make_datasets()` contains, at the top level, the
@@ -398,12 +357,12 @@ def make_dataloaders(in_features, out_features,
                      raters=('A1', 'A2', 'A3', 'A4'),
                      subjects=Ellipsis,
                      exclusions=Ellipsis,
-                     image_size=default_image_size,
+                     image_size=Ellipsis,
                      transform=None,
                      input_transform=None,
                      output_transform=None,
                      hemis='lr',
-                     cache_image_size=saved_image_size,
+                     cache_image_size=Ellipsis,
                      cache_path=None,
                      overwrite=False,
                      mkdirs=True,
@@ -413,7 +372,7 @@ def make_dataloaders(in_features, out_features,
                      dtype='float32',
                      memcache=True,
                      normalization=None,
-                     flatmap_cache=None,
+                     flatmap_cache=True,
                      datasets=None, 
                      shuffle=True,
                      batch_size=5):
@@ -465,7 +424,6 @@ def make_dataloaders(in_features, out_features,
         value is equivalent to
         `{f: make_dataloader(f, **kw) for f in ['anat', 'func', 'both']}`.
     """
-    if image_size is None: image_size = default_image_size
     # What were we given for datasets?
     if datasets is None:
         # We need to make the datasets using the other options.
@@ -498,7 +456,7 @@ def make_dataloaders(in_features, out_features,
     # Okay, now we can make the data-loaders using these datasets.
     trn = trndata(datasets)
     val = valdata(datasets)
-    return pyr.m(
+    return dict(
         trn=DataLoader(trn, batch_size=batch_size, shuffle=shuffle),
         val=DataLoader(val, batch_size=batch_size, shuffle=shuffle))
 
