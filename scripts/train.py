@@ -152,13 +152,13 @@ properties = dict(input_properties, **output_properties)
 
 # Commandline Arguments.........................................................
 # There must be three of them.
-if len(sys.argv) != 3:
+if len(sys.argv) != 4:
     print("SYNTAX: train.py <model_key> <options.json> <plan.json>",
           file=sys.stderr)
     sys.exit(1)
-model_key = sys.argv[0]
-opts_filename = os.path.expanduser(os.path.expandvars(sys.argv[1]))
-plan_filename = os.path.expanduser(os.path.expandvars(sys.argv[2]))
+model_key = sys.argv[1]
+opts_filename = os.path.expanduser(os.path.expandvars(sys.argv[2]))
+plan_filename = os.path.expanduser(os.path.expandvars(sys.argv[3]))
 try:
     with open(opts_filename, 'rt') as fl:
         opts = json.load(fl)
