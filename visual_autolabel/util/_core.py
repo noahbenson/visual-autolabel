@@ -41,7 +41,7 @@ def is_partition(obj):
     boolean
         `True` if `obj` represents a subject partition and `False` otherwise.
     """
-    return ((isinstance(obj, tuple) and len(obj) == 2) or
+    return ((isinstance(obj, (tuple,list)) and len(obj) == 2) or
             (isinstance(obj, Mapping) and 'trn' in obj and 'val' in obj))
 def trndata(obj):
     """Returns the training data of an object representing a subject partition.
@@ -65,7 +65,7 @@ def trndata(obj):
         Either the first element of `obj` when `obj` is a tuple or `obj['trn']`
         when `obj` is a mapping.
     """
-    if isinstance(obj, tuple):
+    if isinstance(obj, (tuple,list)):
         return obj[0]
     else:
         return obj['trn']
@@ -89,7 +89,7 @@ def valdata(obj):
         Either the second element of `obj` when `obj` is a tuple or `obj['val']`
         when `obj` is a mapping.
     """
-    if isinstance(obj, tuple):
+    if isinstance(obj, (tuple,list)):
         return obj[1]
     else:
         return obj['val']
@@ -159,9 +159,13 @@ def partition(sids, how=default_partition):
     sids = np.asarray(sids)
     n = len(sids)
     if how is None: how = default_partition
-    if isinstance(how, tuple):
+    if isinstance(how, (tuple,list)):
         ntrn = trndata(how)
         nval = valdata(how)
+        # If these are basic lists, numpy-ify them.
+        if isinstance(ntrn, (tuple,list)): ntrn = np.asarray(ntrn)
+        if isinstance(nval, (tuple,list)): nval = np.asarray(nval)
+        # Otherwise, parse them.
         if isinstance(ntrn, float) and isinstance(nval, float):
             if ntrn < 0 or nval < 0: raise ValueError("trn and val must be > 0")
             nval = round(nval * n)
