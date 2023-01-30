@@ -7,10 +7,12 @@
 #===============================================================================
 # Constants / Globals
 
+import sys
 import os
 import time
 import copy
 import inspect
+import json
 from collections.abc import Mapping
 
 import torch
@@ -757,9 +759,10 @@ def train_until(in_features, out_features, training_plan,
         with open(os.path.join(model_cache_path, "plan.json"), "wt") as fl:
             json.dump(training_plan, fl)
         # And the options dictionary.
-        with opsn(os.path.join(model_cache_path, "opts.json"), "wt") as fl:
+        with open(os.path.join(model_cache_path, "options.json"), "wt") as fl:
             opts = dict(until=until, model_key=model_key, base_model=base_model,
-                        partition=partition, features=features)
+                        partition=partition,
+                        feature_names=list(features.keys()))
             json.dump(opts, fl)
     if data_cache_path is not None:
         if not os.path.isdir(data_cache_path) and create_directories:
@@ -844,10 +847,13 @@ def load_training(model_key,
         
     Returns
     -------
-    tuple
-        A tuple `(history, models, partition)` of the training history (as a
-        PANDAS dataframe), the best models for each input type (as a dict),
-        and the partition (as a tuple of `(trn_sids, val_sids)`).
+    dict
+        A dictionary whose keys include `'history'`, `'partition'`, `'models'`,
+        `'plan'`, and `'options'`. The history is a summary of the training in
+        the form of a PANDAS dataframe).  The `'models'` entry is a dictionary
+        of the best models for each input type. The partition is represented as
+        a tuple of `(trn_sids, val_sids)`. The plan and options are the
+        parameters given to the `train_until` function.
     """
     if model_cache_path is None:
         path = model_key
@@ -855,6 +861,18 @@ def load_training(model_key,
         path = os.path.join(model_cache_path, model_key)
     hist_path = os.path.join(path, 'training.tsv')
     hist = ny.load(hist_path) if os.path.isfile(hist_path) else None
+    opts_path = os.path.join(path, 'options.json')
+    if os.path.isfile(opts_path):
+        with open(opts_path, 'rt') as fl:
+            opts = json.load(fl)
+    else:
+        opts = None
+    plan_path = os.path.join(path, 'plan.json')
+    if os.path.isfile(plan_path):
+        with open(plan_path, 'rt') as fl:
+            plan = json.load(fl)
+    else:
+        plan = None
     mdls = {}
     for fl in os.listdir(path):
         if fl.startswith('best_') and fl.endswith('.pt'):
@@ -876,4 +894,8 @@ def load_training(model_key,
                     part = make_partition(sids, part)
     except Exception:
         part = None
-    return (hist, mdls, part)
+    return dict(history=hist,
+                models=mdls,
+                partition=part,
+                options=opts,
+                plan=plan)
