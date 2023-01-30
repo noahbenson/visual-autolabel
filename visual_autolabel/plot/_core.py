@@ -8,6 +8,7 @@
 # Constants / Globals
 
 import os
+from statistics import NormalDist
 
 import torch
 import numpy as np
@@ -102,7 +103,7 @@ def add_raterlabels(sub):
     return sub.with_hemi(lh=sub.lh.with_prop(lbls['lh']),
                          rh=sub.rh.with_prop(lbls['rh']))
 
-def summarize_dist(x, middle='mean', extent='std'):
+def summarize_dist(x, middle='mean', extent='std', ci=0.6826895, bfcount=None):
     """Returns summary values for the distribution of the given points.
 
     `summarize_dist(x)` returns the tuple `(mu-sig, mu, mu+sig)` for the mean
@@ -136,6 +137,15 @@ def summarize_dist(x, middle='mean', extent='std'):
         percentile string is interpreted as an instruction to return min and max
         values that delineate the `p`% of the y-values that are closest to the
         midpoint.
+    ci : float, optional
+        The confidence-interval fraction to use if the `extent` option is set to
+        `'ste'`; otherwise this parameter is ignored. The default confidence
+        interval is approximately 0.68, corresponding to a single standard
+        deviation.
+    bfcount : None or positive integer, optional
+        The count of confidence intervals for use with Bonferroni correction if
+        the `'ste'` option is chosen for `extent`. If `'ste'` is not the value
+        of `extent`, then this value is ignored.
     """
     if torch.is_tensor(x):
         x = x.detach().numpy()
@@ -160,8 +170,15 @@ def summarize_dist(x, middle='mean', extent='std'):
             std = np.sqrt(np.sum((x - xmid)**2) / n)
             return (xmid - std, xmid, xmid + std)
         elif extent == 'ste':
+            if bfcount is None:
+                bfcount = 1
             ste = np.sqrt(np.sum((x - xmid)**2)) / n
-            return (xmid - ste, xmid, xmid + ste)
+            # figure out what scaling to apply to the ste based on the requested
+            # confidence interval and bonferroni correction count.
+            alpha = 1 - ci
+            lev = 1 - alpha/bfcount
+            scale = NormalDist().inv_cdf(lev + (1-lev)/2)
+            return (xmid - ste*scale, xmid, xmid + ste*scale)
         elif extent == 'all':
             return (np.min(x), xmid, np.max(x))
         elif extent.endswith('%'):
@@ -180,6 +197,7 @@ def summarize_dist(x, middle='mean', extent='std'):
         raise ValueError(f"unrecognized extent parameter: {extent}")
 def plot_distbars(x, y,
                   middle='mean', extent='std',
+                  ci=0.6826895, bfcount=None,
                   axes=None,
                   fw=None,
                   lw=None, ms=None,
@@ -202,7 +220,7 @@ def plot_distbars(x, y,
         number, `None` to indicate that no dot should be plotted, `'mean'` or
         `'median'` for the mean or median of `ys`, or a percentile such as 
         `'25%'` to indicate an explicit percentile. The default is `'mean'`.
-    barstyle : 'std' | 'ste' | 'iqr' | real | None | percentile str, optional
+    extent : 'std' | 'ste' | 'iqr' | real | None | percentile str, optional
         The length that the bars should extend from the midpoint. This may be
         either a single value such as a real number, or it may be a tuple of
         `(lower, upper)`. If a tuple is given, then lower and upper must be
@@ -217,6 +235,10 @@ def plot_distbars(x, y,
         words, a single percentile string is interpreted as an instruction to
         place the error bars such that they delineate the `p`% of the y-values
         that are closest to the midpoint.
+    bfcount : None or positive integer, optional
+        The count of confidence intervals for use with Bonferroni correction if
+        the `'ste'` option is chosen for `extent`. If `'ste'` is not the value
+        of `extent`, then this value is ignored.
     axes : matplotlib axes or None, optional
         The axes on which to plot the error bars; the default value of `None`
         uses the current axes.
@@ -265,7 +287,8 @@ def plot_distbars(x, y,
             res = ax.plot(x, y, '.', **ptopts)
         else:
             # A vertical error-bar.
-            (ymin, ymid, ymax) = summarize_dist(y, middle, extent)
+            (ymin, ymid, ymax) = summarize_dist(y, middle, extent,
+                                                ci=ci, bfcount=bfcount)
             r1 = ax.plot([x,x], [ymin,ymax], '-', **lnopts)
             r2 = ax.plot(x, ymid, '.', **ptopts)
             res = r1 + r2
