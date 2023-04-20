@@ -40,7 +40,6 @@ import neuropythy as ny
 import torch, torchvision, torchsummary
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import ipyvolume as ipv
 import neuropythy as ny
 
 import visual_autolabel as va
