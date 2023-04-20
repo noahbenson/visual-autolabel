@@ -1,18 +1,23 @@
 version: '3'
 services:
-   visual_autolabel:
-      container_name: visual_autolabel
-      image: nben/neuropythy:latest
-      command: notebook
-      ports:
-         - "8888:8888"
-      environment:
-         - HCP_AUTO_RELEASE="$HCP_AUTO_RELEASE"
-         - HCP_AUTO_DATABASE="$HCP_AUTO_DATABASE"
-         - HCP_CREDENTIALS="$HCP_CREDENTIALS"
-         - HCP_AUTO_DOWNLOAD="$HCP_AUTO_DOWNLOAD"
-         - HCP_SUBJECTS_DIR="/data/hcp/subjects"
-         - SUBJECTS_DIR="/data/freesurfer_subjects"
-         - NPYTHY_DATA_CACHE_ROOT="/data/cache"
-      volumes:
-         - "$PWD:/home/jovyan/visual-autolabel"
+  train:
+    container_name: visual_autolabel_train
+    build: .
+    volumes:
+      - "$PWD/grid-search:/data"
+  notebook:
+    container_name: visual_autolabel_jupyter
+    image: nben/neuropythy:latest
+    command: notebook
+    ports:
+       - "8888:8888"
+    environment:
+       - HCP_AUTO_RELEASE="$HCP_AUTO_RELEASE"
+       - HCP_AUTO_DATABASE="$HCP_AUTO_DATABASE"
+       - HCP_CREDENTIALS="$HCP_CREDENTIALS"
+       - HCP_AUTO_DOWNLOAD="$HCP_AUTO_DOWNLOAD"
+       - HCP_SUBJECTS_DIR="/data/hcp/subjects"
+       - SUBJECTS_DIR="/data/freesurfer_subjects"
+       - NPYTHY_DATA_CACHE_ROOT="/data/cache"
+    volumes:
+       - "$PWD:/home/jovyan/visual-autolabel"
