@@ -21,6 +21,15 @@ from ..util import (sectors_to_rings)
 #===============================================================================
 # Utility Functions
 
+def calc_visual_ring(data):
+    """Returns a `'visual_ring'` property of eccentricity bins for `data`."""
+    ecc = next(v for (k,v) in data.items() if k.endswith('eccentricity'))
+    lbl = next(v for (k,v) in data.items() if k.endswith('visual_area'))
+    ii = np.isin(lbl, (1,2,3))
+    rng = np.zeros(lbl.shape, dtype=lbl.dtype)
+    for (ll,emn,emx) in [(1,0,0.5), (2,0.5,1), (3,1,2), (4,2,4), (5,4,7)]:
+        rng[ii & (ecc >= emn) & (ecc < emx)] = ll
+    return rng
 def load_inferred(sid, h, path=None, prefix=None):
     """Loads the Bayesian inferred maps for an HCP subject.
     
@@ -56,6 +65,8 @@ def add_inferred(sub, path=None, prefix='inf_'):
     sid = int(sub.name)
     lhdat = load_inferred(sid, 'lh', path=path, prefix=prefix)
     rhdat = load_inferred(sid, 'rh', path=path, prefix=prefix)
+    lhdat[f'{prefix}visual_ring'] = calc_visual_ring(lhdat)
+    rhdat[f'{prefix}visual_ring'] = calc_visual_ring(rhdat)
     return sub.with_hemi(lh=sub.lh.with_prop(lhdat),
                          rh=sub.rh.with_prop(rhdat))
 def add_prior(sub, prefix='prior_'):
@@ -77,6 +88,9 @@ def add_prior(sub, prefix='prior_'):
         (lhdat,rhdat) = [
             {(prefix+k):v for (k,v) in dat.items()}
             for dat in (lhdat,rhdat)]
+    # We need to add in the visual_ring data.
+    lhdat[f'{prefix}visual_ring'] = calc_visual_ring(lhdat)
+    rhdat[f'{prefix}visual_ring'] = calc_visual_ring(rhdat)
     return sub.with_hemi(lh=sub.lh.with_prop(lhdat),
                          rh=sub.rh.with_prop(rhdat))
 def add_raterlabels(sub):
@@ -97,7 +111,7 @@ def add_raterlabels(sub):
             # labels also.
             sctdat = lbldat.get('visual_sector', None)
             if sctdat is None: continue
-            eccdat = sectors_to_rings(sctdat, lbldat)
+            eccdat = sectors_to_rings(sctdat, areadat)
             ll[f'{anat}_visual_ring'] = eccdat
         lbls[h] = ll
     return sub.with_hemi(lh=sub.lh.with_prop(lbls['lh']),
