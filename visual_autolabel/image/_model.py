@@ -94,9 +94,13 @@ class UNet(torch.nn.Module):
         self.pretrained = pretrained
         self.logits = logits
         # Set up the base model and base layers for the model.
+        if pretrained:
+            weights = 'IMAGENET1K_V1'
+        else:
+            weights = None
         import torchvision.models as mdls
         base_model = getattr(mdls, base_model)
-        base_model = base_model(pretrained=pretrained,
+        base_model = base_model(weights=weights,
                                 num_classes=segment_count)
         # Not sure we should store the base model; seems like a good idea, but
         # does it get caught up in PyTorch's Module data when we do?

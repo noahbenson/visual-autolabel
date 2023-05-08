@@ -197,8 +197,12 @@ mcp = opts.get('model_cache_path')
 if mcp is not None:
     log_path = os.path.join(mcp, model_key, 'training.log')
     log = autolog(log_path, clear=True)
-
-# Train the model. #TODO: Won't this overwrite the options json?o
+# If we have multiple copies of the model_key, ensure that they match.
+if 'model_key' in opts:
+    if model_key == opts['model_key']:
+        del opts['model_key']
+    
+# Train the model. #TODO: Won't this overwrite the options json?
 train_until(
     inputs, outputs, plan,
     model_key=model_key,

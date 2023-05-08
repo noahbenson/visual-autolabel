@@ -24,9 +24,7 @@ import os, sys, json
 #===============================================================================
 # Parse the arguments and load the parameters.
 
-args = list(sys.argv)
-if len(args) > 0 and args[0].endswith('gen-gridopts.py'):
-    args = args[1:]
+args = sys.argv[1:]
 if len(args) < 1:
     raise RuntimeError(f"grid-params.json argument missing")
 elif len(args) == 1:

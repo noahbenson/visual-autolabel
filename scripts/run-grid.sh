@@ -19,13 +19,13 @@ then echo "SYNTAX: grid-search.sh <start> <stride> <cellcount>"
 fi
 
 # Iterate through our grid cells.
-for (( ii=$start; ii<$n; ii+=$stride ))
-do key="`printf 'grid_%05d' $ii`"
+for (( ii=$start; ii<$n; ii=$(( $ii + $stride )) ))
+do key="`printf 'grid%05d' $ii`"
    # We generate the files we need for this particular run; they will get
    # automatically saved into the model directory by the training script.
    "$GENPARAMS" "$GRIDPARAMS_JSON" "$ii"
    # Now run the training.
-   "$TRAIN" "$key" opts.json plan.json &> /dev/null
+   "$TRAIN" "$key" opts.json plan.json #&> /dev/null
 done
 
 # That's it.
