@@ -18,17 +18,13 @@ RUN pip install \
 # Go ahead and copy the library into the home directory.
 RUN mkdir -p /opt/visual-autolabel
 COPY . /opt/visual-autolabel
-
-# The default method of running is to run the train script.
-RUN mkdir -p /data
 ENV PYTHONPATH="/opt/visual-autolabel"
+RUN chmod 755 /opt/visual-autolabel/scripts/train.py \
+              /opt/visual-autolabel/scripts/gen-gridparams.py \
+              /opt/visual-autolabel/scripts/run-grid.sh
 
-# We want to run things in the data directory.
-WORKDIR /data
-ENTRYPOINT [ \
-        "/opt/visual-autolabel/scripts/train.py", \
-        "/data/opts.json", \
-        "/data/train.json" \
-]
-
-
+# We want to run things in the /root (home) directory, and we want a /data
+# directory to mount things into.
+RUN mkdir -p /data
+WORKDIR /root
+ENTRYPOINT ["/opt/visual-autolabel/scripts/run-grid.sh"]

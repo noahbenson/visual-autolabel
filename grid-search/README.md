@@ -5,21 +5,25 @@ This file contains notes on the grid-search for the Visual Autolabel project.
 ## What parameters are we using in the grid search?
 
 Possibilities for parameters:
-* The base model (`base_model`: `resnet18` or `resnet34`)
-* Whether the resnet is pretrained (`pretrained`)
+* The base model (`base_model`: `resnet18` or `resnet34`): 2 settings
+* Whether the resnet is pretrained (`pretrained`): 2 settings
 * The learning rate (`lr`; we have been using `0.00125-0.00375`)  
-  (Bogeng is doing some reading on what is typical for these parameters).
+  (Bogeng is doing some reading on what is typical for these parameters).  
+  5 settings: 1/4, 1/2, 1, 2, 4 times the rate we have been using.
 * The learning rate decay (`gamma`)  
-  (Bogeng is doing some reading on what is typical for these parameters).
+  (Bogeng is doing some reading on what is typical for these parameters).  
+  5 settings: 1/4, 1/2, 1, 2, 4 times what we have been using.
 * BCE weight (`bce_weight`; just enough to figure out whether our values matter
   or not). This may be hard to find information about in the literature: we are
   changing the weighting of two different loss functions (in the beginning we
   prefer the BCE and at the end we prefer the dice loss).  (Bogeng is doing some
-  reading on what is typical for these parameters).
+  reading on what is typical for these parameters).  
+  3 settings: 1/2, 1, 2 times what we have been using.
 * Batch size (`batch_size`; I believe we're using 5). Probably it would be
   sufficient to use values `[2, 3, 4, 5, 6, 7, 8, 9, 10]` or maybe only the odd
-  values.
-* This may be as many as 1800 cells!  
+  values.  
+  5 settings: 1, 3, 5, 7, 9.
+* This may be as many as 1500 cells!  
   (Noah will look into how much this would actually cost on AWS and how many
   cells are feasible.)
 
