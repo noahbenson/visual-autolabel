@@ -26,5 +26,5 @@ RUN chmod 755 /opt/visual-autolabel/scripts/train.py \
 # We want to run things in the /root (home) directory, and we want a /data
 # directory to mount things into.
 RUN mkdir -p /data
-WORKDIR /root
+WORKDIR /
 ENTRYPOINT ["/opt/visual-autolabel/scripts/run-grid.sh"]
