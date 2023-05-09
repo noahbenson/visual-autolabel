@@ -20,11 +20,11 @@ RUN mkdir -p /opt/visual-autolabel
 COPY . /opt/visual-autolabel
 ENV PYTHONPATH="/opt/visual-autolabel"
 RUN chmod 755 /opt/visual-autolabel/scripts/train.py \
-              /opt/visual-autolabel/scripts/gen-gridparams.py \
-              /opt/visual-autolabel/scripts/run-grid.sh
+              /opt/visual-autolabel/grid-search/scripts/gen-gridparams.py \
+              /opt/visual-autolabel/grid-search/scripts/docker-run-grid.sh
 
 # We want to run things in the /root (home) directory, and we want a /data
 # directory to mount things into.
 RUN mkdir -p /data
 WORKDIR /
-ENTRYPOINT ["/opt/visual-autolabel/scripts/run-grid.sh"]
+ENTRYPOINT ["/opt/visual-autolabel/grid-search/scripts/docker-run-grid.sh"]
