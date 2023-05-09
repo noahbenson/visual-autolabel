@@ -140,7 +140,7 @@ def cmmdl_angle_multiplier(theta,
     th[lt] = theta[lt] / (hpi + li) * hpi
     hvpart = hva * cos(2 * th)
     thsin  = sin(th)
-    ulpart = vma * torch.sign(thsin) * thsin**2
+    ulpart = vma * sign(thsin) * thsin**2
     return 1.0 + 0.5*(hvpart - ulpart)
 def cmmdl_hhcmag(eccen,
                  c1=HH1991_c1, 
