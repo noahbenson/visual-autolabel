@@ -2,7 +2,7 @@
 
 # Load the tag from the tag environment.
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-cd "$SCRIPT_DIR"/..
+cd "$SCRIPT_DIR"/../..
 source ./config.env
 
 # Run the build command.
