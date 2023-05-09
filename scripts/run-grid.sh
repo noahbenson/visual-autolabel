@@ -3,6 +3,14 @@
 TRAIN="/opt/visual-autolabel/scripts/train.py"
 GENPARAMS="/opt/visual-autolabel/scripts/gen-gridparams.py"
 GRIDPARAMS_JSON="/opt/visual-autolabel/grid-search/grid-params.json"
+DATA=/data
+RUNDIR=/data/run
+OUTDIR=/data/models
+INDIR=/data/inputs
+
+# How many times does each model get run?
+UNTIL=$(grep until "$GRIDPARAMS_JSON" \
+            | sed -E 's/^ *"until": ([0-9]+), *$/\1/')
 
 # This script runs the grid-search for a single node. The required arguments
 # are (1) the starting grid-search cell, (2) the stride of the search, and (3)
@@ -18,14 +26,35 @@ then echo "SYNTAX: grid-search.sh <start> <stride> <cellcount>"
      exit 1
 fi
 
+# The OVERWRITE environment variable may be set in order to specify that the
+# script should overwrite (instead of skip) previously run models.
+if [ -z "$OVERWRITE" ] || [ "$OVERWRITE" = "no" ] || [ "$OVERWRITE" = "n" ]
+then OVERWRITE=no
+elif [ "$OVERWRITE" = "yes" ] || [ "$OVERWRITE" = "y" ]
+then OVERWRITE=yes
+else echo "OVERWRITE must be \"yes\" or \"no\""
+     exit 2
+fi
+
 # Iterate through our grid cells.
 for (( ii=$start; ii<$n; ii=$(( $ii + $stride )) ))
 do key="`printf 'grid%05d' $ii`"
+   rundir="${RUNDIR}/${key}"
+   outdir="${OUTDIR}/${key}"
+   logfn="${outdir}/training.log"
+   # If we're not overwriting and the output directory already has a full log,
+   # then we can skip this entry.
+   [ "$OVERWRITE" = "no" ] \
+       && [ -r "$logfl" ] \
+       && [ $(grep '^Best val loss' "$logfl" | wc -l) -eq $((3*$UNTIL)) ] \
+       && continue
+   mkdir -p "$rundir" && cd "$rundir"
+   mkdir -p "$outdir"
    # We generate the files we need for this particular run; they will get
    # automatically saved into the model directory by the training script.
-   "$GENPARAMS" "$GRIDPARAMS_JSON" "$ii"
+   "$GENPARAMS" "$GRIDPARAMS_JSON" $ii
    # Now run the training.
-   "$TRAIN" "$key" opts.json plan.json #&> /dev/null
+   "$TRAIN" "$key" opts.json plan.json #&> ./run.log
 done
 
 # That's it.
