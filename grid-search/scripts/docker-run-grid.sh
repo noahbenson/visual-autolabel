@@ -1,16 +1,12 @@
 #! /bin/bash
 
 TRAIN="/opt/visual-autolabel/scripts/train.py"
-GENPARAMS="/opt/visual-autolabel/scripts/gen-gridparams.py"
+GENPARAMS="/opt/visual-autolabel/grid-search/scripts/gen-gridparams.py"
 GRIDPARAMS_JSON="/opt/visual-autolabel/grid-search/grid-params.json"
 DATA=/data
 RUNDIR=/data/run
 OUTDIR=/data/models
 INDIR=/data/inputs
-
-# How many times does each model get run?
-UNTIL=$(grep until "$GRIDPARAMS_JSON" \
-            | sed -E 's/^ *"until": ([0-9]+), *$/\1/')
 
 # This script runs the grid-search for a single node. The required arguments
 # are (1) the starting grid-search cell, (2) the stride of the search, and (3)
@@ -36,10 +32,26 @@ else echo "OVERWRITE must be \"yes\" or \"no\""
      exit 2
 fi
 
+# How many times does each model get run?
+UNTIL=$(grep until "$GRIDPARAMS_JSON" \
+            | sed -E 's/^ *"until" *: *([0-9]+) *[,}]? *$/\1/')
+
+# Log prefix.
+echo "# Node Runtime, $start"
+echo ""
+echo "## Parameters"
+echo '```yaml'
+echo "start: $start"
+echo "stride: $stride"
+echo "end: $n"
+echo '```'
+echo ""
+echo "## Log"
+
 # Iterate through our grid cells.
 for (( ii=$start; ii<$n; ii=$(( $ii + $stride )) ))
 do key="`printf 'grid%05d' $ii`"
-   rundir="${RUNDIR}/${key}"
+   rundir="${RUNDIR}/cells/${key}"
    outdir="${OUTDIR}/${key}"
    logfn="${outdir}/training.log"
    # If we're not overwriting and the output directory already has a full log,
@@ -49,12 +61,14 @@ do key="`printf 'grid%05d' $ii`"
        && [ $(grep '^Best val loss' "$logfl" | wc -l) -eq $((3*$UNTIL)) ] \
        && continue
    mkdir -p "$rundir" && cd "$rundir"
-   mkdir -p "$outdir"
    # We generate the files we need for this particular run; they will get
    # automatically saved into the model directory by the training script.
    "$GENPARAMS" "$GRIDPARAMS_JSON" $ii
    # Now run the training.
-   "$TRAIN" "$key" opts.json plan.json #&> ./run.log
+   echo "* KEY: $key  "
+   echo "  BEGIN $key: `date`  "
+   "$TRAIN" "$key" opts.json plan.json &> ./run.log
+   echo "  END $key: `date`"
 done
 
 # That's it.
