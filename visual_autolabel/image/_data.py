@@ -962,7 +962,7 @@ class FlatmapImageCache(ImageCache):
             raise ValueError(
                 f"given image shape {im.shape} must match {imsz}")
         if im.shape[-2] != imsz[0]:
-            im = Resize(imsz)(torch.from_numpy(im)[None,...])[0]
+            im = Resize(imsz, antialias=True)(torch.from_numpy(im)[None,...])[0]
             im = im.detach().numpy()
         # Okay, let's orient ourselves with respect to the image and flatmap.
         (xmin,ymin) = np.min(fmap.coordinates, axis=1)
@@ -1155,7 +1155,7 @@ class ImageCacheDataset(Dataset):
                  'options',
                  'cache')
     default_options = ImageCacheDatasetOptions(
-        resize=Resize(size=default_image_size),
+        resize=Resize(size=default_image_size, antialias=True),
         transform=None,
         input_transform=None,
         output_transform=None,
@@ -1178,7 +1178,7 @@ class ImageCacheDataset(Dataset):
         outputs = (outputs,) if isinstance(outputs, str) else tuple(outputs)
         if image_size is Ellipsis:
             from ..config import default_image_size as image_size
-        resize = Resize(size=image_size)
+        resize = Resize(size=image_size, antialias=True)
         if transform is Ellipsis:
             transform = options.transform
         if input_transform is Ellipsis:
