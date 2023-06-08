@@ -1,0 +1,5 @@
+# CLOUD_IMG: This file was created/modified by the Cloud Image build process
+UUID=f3fee36d-6284-4fa6-b5ae-524363140b77	/	 ext4	defaults,discard	0 1
+UUID=75A5-1B77	/boot/efi	vfat	umask=0077	0 1
+/dev/disk/cloud/azure_resource-part1	/mnt	auto	defaults,nofail,x-systemd.requires=cloud-init.service,_netdev,comment=cloudconfig	0	2
+//nbenvisualautolabel.file.core.windows.net/nbenvisualautolabel-fileshare /data cifs nofail,credentials=/etc/smbcredentials/nbenvisualautolabel.cred,serverino,nosharesock,actimeo=30,rw,uid=1000,gid=1000
