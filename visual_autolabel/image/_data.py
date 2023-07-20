@@ -9,7 +9,8 @@
 # External Libries
 
 import os, sys, time, copy, warnings
-from collections import (namedtuple, Mapping, Sequence)
+from collections import namedtuple
+from collections.abc import (Mapping, Sequence)
 
 import numpy as np
 import scipy as sp
