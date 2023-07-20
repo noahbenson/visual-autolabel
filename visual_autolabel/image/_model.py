@@ -100,8 +100,12 @@ class UNet(torch.nn.Module):
             weights = None
         import torchvision.models as mdls
         base_model = getattr(mdls, base_model)
-        base_model = base_model(weights=weights,
-                                num_classes=segment_count)
+        try:
+            base_model = base_model(weights=weights,
+                                    num_classes=segment_count)
+        except TypeError:
+            base_model = base_model(pretrained=pretrained,
+                                    num_classes=segment_count)
         # Not sure we should store the base model; seems like a good idea, but
         # does it get caught up in PyTorch's Module data when we do?
         #self.base_model = resnet18(pretrained=pretrained)
