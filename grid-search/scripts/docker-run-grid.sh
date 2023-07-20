@@ -17,6 +17,7 @@ INDIR=/data/inputs
 start="$1"
 stride="$2"
 n="$3"
+device="$4"
 if [ -z "$start" ] || [ -z "$stride" ] || [ -z "$n" ]
 then echo "SYNTAX: grid-search.sh <start> <stride> <cellcount>"
      exit 1
@@ -64,6 +65,11 @@ do key="`printf 'grid%05d' $ii`"
    # We generate the files we need for this particular run; they will get
    # automatically saved into the model directory by the training script.
    "$GENPARAMS" "$GRIDPARAMS_JSON" $ii
+   # If we're not running on CPU, fix the options.
+   if [ -n "$device" ] && [ "$device" != "cpu" ]
+   then mv opts.json opts_nodev.json
+	cat opts_nodev.json | sed -e 's/}$/, "device": "'"${device}"'"}/' > opts.json
+   fi
    # Now run the training.
    echo "* KEY: $key  "
    echo "  BEGIN $key: `date`  "
