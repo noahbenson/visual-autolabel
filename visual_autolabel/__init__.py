@@ -30,44 +30,76 @@ sids : NumPy array of ints
 
 #-------------------------------------------------------------------------------
 # Configuration
-# We don't import the config items themselves, but we import the config module.
 from . import config
-# One exception: we do import the subject-IDs.
-from .config import sids
+from .config import (
+    sids
+)
 
 #-------------------------------------------------------------------------------
 # Utilities
-# We import most of the utilities.
-from .util   import (partition, partition_id, is_partition, trndata, valdata,
-                     dice_loss, bce_loss, loss)
+from . import util
+from .util import (
+    is_partition,
+    trndata,
+    valdata,
+    partition_id,
+    partition,
+    is_logits,
+    bce_loss,
+    dice_loss,
+    loss,
+    dice_scores,
+    dice_score,
+    autolog
+)
 
 #-------------------------------------------------------------------------------
 # Image-based Data and Model
-# And we use the image-based datasets and networks.
-from ._image import (HCPVisualDataset, make_datasets, make_dataloaders, UNet)
+from . import image
+from .image import (
+    FlatmapFeature,
+    LabelFeature,
+    NullFeature,
+    HCPLinesDataset,
+    UNet,
+    make_datasets,
+    make_dataloaders
+)
 
 #-------------------------------------------------------------------------------
 # Model Training
-# Finally, we import the relevant training functions.
-from .train  import (train_model, build_model, run_modelplan)
+from . import train
+from .train import (
+    train_model,
+    build_model,
+    run_modelplan,
+    train_until,
+    load_training
+)
+
+#-------------------------------------------------------------------------------
+# Plotting Utilities
+from . import plot
 
 
 #===============================================================================
-# __all__
-__all__ = ["config",
-           "sids",
-           "partition",
-           "partition_id",
-           "is_partition",
-           "trndata",
-           "valdata",
-           "dice_loss",
-           "bce_loss",
-           "loss",
-           "HCPVisualDataset",
-           "make_datasets",
-           "make_dataloaders",
-           "UNet",
-           "train_model",
-           "build_model",
-           "run_modelplan"]
+__all__ = [
+    "sids",
+    "partition",
+    "partition_id",
+    "is_partition",
+    "trndata",
+    "valdata",
+    "dice_loss",
+    "bce_loss",
+    "loss",
+    "HCPLinesDataset",
+    "make_datasets",
+    "make_dataloaders",
+    "UNet",
+    "train_model",
+    "build_model",
+    "run_modelplan",
+    "train_until",
+    "load_training"
+]

@@ -180,9 +180,9 @@ def sin_well(t, width=1, min=0, max=1, center=0):
        
     The value `w0` is chosen to make the sine-well approximately similar to a
     normal (Gassian) well in that the half-maximum point of both wells will be
-    at the value `log(sqrt(4))`, which is where the half-way point occurs for a
+    at the value `sqrt(log(4))`, which is where the half-way point occurs for a
     normal distribution. For a `sin_well`, this value of `w0` is `1 / (2
-    log(sqrt(4)))`.
+    sqrt(log(4)))`.
        
     `sin_well(t)` is equivalent to
     `sin_well(t, width=1, min=0, max=1, center=0)`.

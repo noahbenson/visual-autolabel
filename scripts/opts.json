@@ -1,0 +1,5 @@
+{"inputs": "all",
+ "until": 10,
+ "base_model": "resnet18",
+ "model_cache_path": "/data/visual-autolabel/models",
+ "data_cache_path": "/data/visual-autolabel/data"}
