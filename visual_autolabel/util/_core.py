@@ -192,7 +192,7 @@ def partition(sids, how=default_partition):
         how = int(how, 16)
         fmt = f'{{0:0{len(sids)}b}}'
         trn_ii = np.array([1 if s == '1' else 0 for s in fmt.format(how)],
-                          dtype=np.bool)
+                          dtype=bool)
         trn_sids = sids[trn_ii]
         val_sids = sids[~trn_ii]
     else:

@@ -1028,17 +1028,17 @@ class FlatmapImageCache(ImageCache):
             A property label array for the target's flatmap produced from the
             given image channels.
         """
+        # Invert the image(s)
+        invs = self.inv(target, image, view=view, null=0)
         # Parse the labelsets parameter.
         if labelsets is None:
-            lsets = [slice(0, ps.shape[0], 0)]
+            lsets = [slice(0, invs.shape[0], 0)]
         elif isinstance(labelsets, slice):
             lsets = [labelsets]
         elif isinstance(labelsets, Mapping):
             lsets = list(labelsets.values())
         else:
             lsets = labelsets
-        # Invert the image(s)
-        invs = self.inv(target, image, view=view, null=0)
         res = []
         # Convert the labelsets into
         for ls in lsets:
