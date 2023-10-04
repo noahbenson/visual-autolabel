@@ -1,0 +1,7 @@
+new_result: run with 5 sample with 300 epoches. 
+model_final.pt: the whole model with trianed weights
+output_image.pt: the output file (43 images after model)
+train_output.pt: training part model output
+train_true.pt: ground true for training
+valid_output_pt: validation part model output
+valid_true.pt: ground ture for validation
