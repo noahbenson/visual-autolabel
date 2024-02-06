@@ -7,9 +7,9 @@
 # Configuration
 
 # How many cells are there in the grid search?
-CELLCOUNT=4200
+CELLCOUNT=1800
 # How many nodes we are using.
-NODECOUNT=50
+NODECOUNT=3
 
 # The path of the data directory.
 DATA="/data/visual-autolabel"
