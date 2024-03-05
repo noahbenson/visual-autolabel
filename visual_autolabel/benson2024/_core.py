@@ -98,7 +98,7 @@ dwi_features = {
     'dwi_OR': DWIFeature('OR'),
     'dwi_VOF': DWIFeature('VOF')
 }
-features = dict(
+hcp_features = dict(
     dwi_features,
     # Add in the 'zeros' feature, which represents all zeros for a null input.
     zeros=NullFeature('zeros')
@@ -118,7 +118,7 @@ dwonly_properties = ('dwi_OR', 'dwi_VOF')
 full_properties = (t1only_properties + t2only_properties +
                    dwonly_properties + fnonly_properties)
 # The feature-sets by name.
-input_properties = {
+hcp_input_properties = {
     'null': ('zeros',),
     'anat': t1only_properties,
     't1t2': t1only_properties + t2only_properties,
@@ -129,10 +129,21 @@ input_properties = {
     'nodw': t1only_properties + t2only_properties + fnonly_properties,
     'full': full_properties
 }
-output_properties = {
+hcp_output_properties = {
     'area': vaonly_properties,
     'ring': econly_properties,
     'sect': vaonly_properties + econly_properties,
 }
 # All the feature properties.
-properties = dict(input_properties, **output_properties)
+hcp_properties = dict(hcp_input_properties, **hcp_output_properties)
+# Now the NYU properties.
+nyu_input_properties = {
+    'null': ('zeros',),
+    'anat': t1only_properties,
+    'func': t1only_properties + fnonly_properties,
+}
+nyu_output_properties = {
+    'area': vaonly_properties,
+}
+# All the feature properties.
+nyu_properties = dict(nyu_input_properties, **nyu_output_properties)
