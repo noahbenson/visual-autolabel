@@ -819,10 +819,10 @@ def train_until(in_features, out_features, training_plan,
                 row = dict(input=dnm, loss=loss, dice=dice,
                            training_time=(t1-t0))
                 # See if this one is good enough that it needs to be saved.
-                hh = [d for d in training_history if d['input'] == dnm]
-                if model_cache_path is not None and len(hh) > 0:
+                if model_cache_path is not None:
+                    hh = [d for d in training_history if d['input'] == dnm]
                     mn = sorted(hh, key=lambda d:d['dice'])[0]
-                    if mn['dice'] > dice:
+                    if len(hh) == 0 or mn['dice'] > dice:
                         # We need to save out this model!
                         savepath = os.path.join(model_cache_path,
                                                 f"best_{dnm}.pt")
