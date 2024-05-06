@@ -1032,7 +1032,7 @@ class FlatmapImageCache(ImageCache):
         invs = self.inv(target, image, view=view, null=0)
         # Parse the labelsets parameter.
         if labelsets is None:
-            lsets = [slice(0, invs.shape[0], 0)]
+            lsets = [slice(0, invs.shape[0], None)]
         elif isinstance(labelsets, slice):
             lsets = [labelsets]
         elif isinstance(labelsets, Mapping):
@@ -1291,9 +1291,32 @@ class ImageCacheDataset(Dataset):
     def __len__(self):
         return len(self.targets)
     def predlabels(self, k, model, view=Ellipsis, labelsets=None):
+        """Returns a set of predicted labels for the cortex of a subejct.
+
+        Parameters
+        ----------
+        k : subject index
+            The index of the target in the dataset; this is not the target ID
+            but the target index.
+        model : UNet
+            The UNet model to use for predicting the labels.
+        view : dict, optional
+            The view to use when converting labels from the prediction image to
+            the cortical surface. Typically this is either `{'hemisphere':'lh'}`
+            or `{'hemisphere':'rh'}`.
+        labelsets : slice or dict of slices, optional
+            The sets of labels that are being predicted. This can typically be
+            left blank, but if, for example, a model predicts both visual areas
+            and iso-eccentric regions, the two sets of labels could be
+            partitioned into separate `'visual_area'` (3 labels) and
+            `'visual_ring'` (5 labels) properties by passing the following dict:
+            `{'visual_area':slice(0,3), 'visual_ring': slice(3,8)}`.
+
+        Returns
+        -------
+        labels : numpy array
+            The labels projected onto the subject's cortical surface.
         """
-        """
-        #TODO write docs
         (target, k) = self._to_target_index(k)
         (inp, outp) = self[k]
         inp = inp[None, ...]

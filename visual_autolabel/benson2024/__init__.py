@@ -10,6 +10,7 @@ from ._core import (
     DWIFeature,
     dwi_features,
     hcp_features,
+    nyu_features,
     vaonly_properties,
     econly_properties,
     t1only_properties,
@@ -18,5 +19,12 @@ from ._core import (
     full_properties,
     hcp_input_properties,
     hcp_output_properties,
-    hcp_properties
+    hcp_properties,
+    nyu_input_properties,
+    nyu_output_properties,
+    nyu_properties,
+    benson2024_unet,
+    benson2024_data
 )
+# We import the UNet used as a convenience.
+from ..image import UNet

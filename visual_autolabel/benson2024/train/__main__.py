@@ -9,26 +9,19 @@
 import os, sys, json
 
 from .. import (
-    features,
-    input_properties,
-    output_properties
-)
+    hcp_features as features,
+    hcp_input_properties as input_properties,
+    hcp_output_properties as output_properties)
 from ... import (
     train_until,
     load_training,
-    autolog
-)
-from ...plot import (
-    add_inferred,
-    add_prior,
-    add_raterlabels
-)
+    autolog)
 
 
 # Commandline Arguments.........................................................
 # There must be three of them.
 if len(sys.argv) != 4:
-    print("SYNTAX: python -m visual_autolabel.benson2024.train \\\n"
+    print("SYNTAX: python -m visual_autolabel.benson2024.train_hcp \\\n"
           "                  <model_key> <options.json> <plan.json>",
           file=sys.stderr)
     sys.exit(1)
@@ -58,7 +51,7 @@ elif isinstance(inputs, str):
     if inputs == 'all':
         inputs = input_properties
     else:
-        inputs = input_properties[inputs]
+        inputs = {inputs: input_properties[inputs]}
 else:
     # Otherwise we leave them as-is! A dictionary or a list could be provided.
     pass
@@ -79,7 +72,7 @@ if 'model_key' in opts:
     if model_key == opts['model_key']:
         del opts['model_key']
     
-# Train the model. #TODO: Won't this overwrite the options json?
+# Train the model.
 train_until(
     inputs, outputs, plan,
     model_key=model_key,

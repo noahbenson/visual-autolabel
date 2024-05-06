@@ -21,20 +21,20 @@ from ..util import (sectors_to_rings)
 #===============================================================================
 # Utility Functions
 
-def calc_visual_ring(data):
+def calc_visual_ring(data, rings=((0,0.5), (0.5,1), (1,2), (2,4), (4,7))):
     """Returns a `'visual_ring'` property of eccentricity bins for `data`."""
     ecc = next(v for (k,v) in data.items() if k.endswith('eccentricity'))
     lbl = next(v for (k,v) in data.items() if k.endswith('visual_area_init'))
     ii = np.isin(lbl, (1,2,3))
     rng = np.zeros(lbl.shape, dtype=lbl.dtype)
-    for (ll,emn,emx) in [(1,0,0.5), (2,0.5,1), (3,1,2), (4,2,4), (5,4,7)]:
-        rng[ii & (ecc >= emn) & (ecc < emx)] = ll
+    for (ll,(emn,emx)) in enumerate(rings):
+        rng[ii & (ecc >= emn) & (ecc < emx)] = ll + 1
     return rng
-def calc_visual_area(data):
+def calc_visual_area(data, eccmin=0, eccmax=7):
     """Returns a `'visual_ring'` property of eccentricity bins for `data`."""
     ecc = next(v for (k,v) in data.items() if k.endswith('eccentricity'))
     lbl = next(v for (k,v) in data.items() if k.endswith('visual_area_init'))
-    ii = np.isin(lbl, (1,2,3)) & (ecc >= 0) & (ecc < 7)
+    ii = np.isin(lbl, (1,2,3)) & (ecc >= eccmin) & (ecc < eccmax)
     are = np.zeros(lbl.shape, dtype=lbl.dtype)
     are[ii] = lbl[ii]
     return are
@@ -116,8 +116,10 @@ def add_raterlabels(sub):
     for h in ['lh','rh']:
         ll = {}
         for anat in ['A1','A2','A3','A4']:
-            lbldat = lbldata[anat].get(sid,{})
-            lbldat = lbldat.get(h, {})
+            lbldat = lbldata[anat].get(sid)
+            if lbldat is None: lbldat = {}
+            lbldat = lbldat.get(h)
+            if lbldat is None: lbldat = {}
             areadat = lbldat.get('visual_area', None)
             if areadat is None: continue
             ll[f'{anat}_visual_area'] = areadat

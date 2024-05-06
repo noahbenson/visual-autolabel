@@ -21,6 +21,12 @@ from ._hcp import (
     make_datasets,
     make_dataloaders
 )
+from ._nyu import (
+    NYURetinotopyImageCache,
+    NYURetinotopyDataset,
+    make_datasets as nyu_make_datasets,
+    make_dataloaders as nyu_make_dataloaders
+)
 from ._model import (
     UNet
 )
@@ -33,6 +39,8 @@ __all__ = [
     'ImageCacheDataset',
     'HCPLinesImageCache',
     'HCPLinesDataset',
+    'NYURetinotopyImageCache',
+    'NYURetinotopyDataset',
     'make_datasets',
     'make_dataloaders',
     'UNet',

@@ -295,6 +295,7 @@ def _make_dataloaders_and_model(in_features=None,  # make_dataloader args...
                                 batch_size=5,
                                 model=None,  # model args...
                                 base_model='resnet18',
+                                init_weights=None,
                                 pretrained=False,
                                 logits=None):
     # First, make the dataloaders.
@@ -338,6 +339,15 @@ def _make_dataloaders_and_model(in_features=None,  # make_dataloader args...
                             base_model=base_model,
                             pretrained=pretrained,
                             logits=logits)
+    # See if we need to initialize the weights.
+    if init_weights is not None:
+        from pathlib import Path
+        if isinstance(init_weights, (str, Path)):
+            weights = torch.load(init_weights)
+        else:
+            # otherwise, assume the init_weights are the weights dictionary
+            weights = init_weights
+        start_model.load_state_dict(weights)
     return (dataloaders, start_model)
 def build_model(
         # Step 1: Build DataLoaders.
@@ -673,7 +683,10 @@ def run_modelplan(modelplan, **kw):
 def train_until(in_features, out_features, training_plan,
                 until=None,
                 model_key=None,
+                raters=('A1', 'A2', 'A3', 'A4'),
                 base_model='resnet18',
+                init_weights=None,
+                dataloaders=None,
                 partition=None,
                 features=None,
                 pretrained=False,
@@ -800,8 +813,11 @@ def train_until(in_features, out_features, training_plan,
                     training_plan,
                     in_features=infeats,
                     out_features=out_features,
+                    raters=raters,
+                    dataloaders=dataloaders,
                     partition=part,
                     base_model=base_model,
+                    init_weights=init_weights,
                     features=features,
                     pretrained=pretrained,
                     lr=lr,
@@ -821,8 +837,8 @@ def train_until(in_features, out_features, training_plan,
                 # See if this one is good enough that it needs to be saved.
                 if model_cache_path is not None:
                     hh = [d for d in training_history if d['input'] == dnm]
-                    mn = sorted(hh, key=lambda d:d['dice'])[0]
-                    if len(hh) == 0 or mn['dice'] > dice:
+                    hh = sorted(hh, key=lambda d:d['dice'])
+                    if len(hh) == 0 or hh[0]['dice'] > dice:
                         # We need to save out this model!
                         savepath = os.path.join(model_cache_path,
                                                 f"best_{dnm}.pt")
