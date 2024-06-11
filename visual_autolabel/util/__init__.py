@@ -23,7 +23,13 @@ from ._core import (
     dice_scores,
     dice_score,
     sectors_to_rings,
-    autolog
+    autolog,
+    centroid,
+    centroid_align_points,
+    rotation_alignment_matrix,
+    rotation_align_points,
+    rigid_align_points,
+    rigid_align_cortices
 )
 
 __all__ = [
@@ -41,5 +47,7 @@ __all__ = [
     "dice_scores",
     "dice_score",
     "sectors_to_rings",
-    "autolog"
+    "autolog",
+    "rigid_align_points",
+    "rigid_align_cortices"
 ]
