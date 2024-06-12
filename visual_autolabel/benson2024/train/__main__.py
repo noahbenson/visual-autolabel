@@ -57,6 +57,10 @@ else:
     pass
 outputs = opts.pop('prediction', 'area')
 outputs = output_properties[outputs]
+# Check if the partition is set to use the default HCP partition.
+if opts.get('partition') == 'default':
+    from .._core import hcp_partition
+    opts['partition'] = hcp_partition()
 
 
 #===============================================================================
