@@ -32,7 +32,8 @@ sids : NumPy array of ints
 # Configuration
 from . import config
 from .config import (
-    sids
+    sids,
+    nyusids
 )
 
 #-------------------------------------------------------------------------------
@@ -90,6 +91,7 @@ from . import benson2024
 #===============================================================================
 __all__ = [
     "sids",
+    "nyusids",
     "partition",
     "partition_id",
     "is_partition",

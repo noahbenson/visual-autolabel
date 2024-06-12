@@ -31,15 +31,17 @@ from ._core import (
     saved_image_size,
     default_image_size,
     default_partition,
-    sids
+    sids,
+    nyusids
 )
 
-# We also have two variables defined only here: model and data cache paths.
-# You can overwrite these to change the value that Ellipsis gets converted into
+# We also have three variables defined only here: model and data cache paths.
+# You can overwrite these to change the value that None gets converted into
 # when passed for either the model_cache_path or data_cache_path options (which
 # are occasionally abbreviated just cache_path) are given.
 model_cache_path = None
 data_cache_path = None
+nyudata_cache_path = None
 
 __all__ = [
     "saved_image_size",
@@ -47,5 +49,6 @@ __all__ = [
     "default_partition",
     "sids",
     "model_cache_path",
-    "data_cache_path"
+    "data_cache_path",
+    "nyudata_cache_path"
 ]

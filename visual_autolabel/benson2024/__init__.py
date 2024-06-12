@@ -11,6 +11,8 @@ from ._core import (
     dwi_features,
     hcp_features,
     nyu_features,
+    input_descriptions,
+    output_descriptions,
     vaonly_properties,
     econly_properties,
     t1only_properties,
@@ -23,8 +25,19 @@ from ._core import (
     nyu_input_properties,
     nyu_output_properties,
     nyu_properties,
+    hcp_dataset,
+    nyu_dataset,
+    hcp_all_datasets,
+    nyu_all_datasets,
+    hcp_flatmaps,
+    nyu_flatmaps,
+    hcp_all_flatmaps,
+    nyu_all_flatmaps,
     benson2024_unet,
-    benson2024_data
+    benson2024_data,
+    hcp_partition,
+    nyu_partition,
+    score_dataframe,
 )
 # We import the UNet used as a convenience.
 from ..image import UNet
