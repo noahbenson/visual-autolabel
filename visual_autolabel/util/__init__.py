@@ -29,7 +29,8 @@ from ._core import (
     rotation_alignment_matrix,
     rotation_align_points,
     rigid_align_points,
-    rigid_align_cortices
+    rigid_align_cortices,
+    forkrun
 )
 
 __all__ = [
@@ -49,5 +50,6 @@ __all__ = [
     "sectors_to_rings",
     "autolog",
     "rigid_align_points",
-    "rigid_align_cortices"
+    "rigid_align_cortices",
+    "forkrun"
 ]

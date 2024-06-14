@@ -762,3 +762,45 @@ def rigid_align_cortices(hem1, hem2, surface='white'):
     surf1_on_surf2 = rigid_align_points(surf1.coordinates, surf1_as_surf2)
     # Return the surface with the new coordinates.
     return surf1.copy(coordinates=surf1_on_surf2)
+def forkrun(f, *args, **kwargs):
+    """Runs the given function in a child subprocess and returns the results.
+    
+    This function accepts a single callable objects followed by any number of
+    arguments, all of which are passed to the callable. A process fork is
+    first created in which the function is run, then pickle is used to pipe the
+    function's return value back to the original process.
+    
+    This function exists primarily to work around memory leaks that occur as a
+    result of libraries that cache data internally.
+    """
+    import os, sys, pickle
+    (inp, outp) = os.pipe()
+    os.set_inheritable(inp, True)
+    os.set_inheritable(outp, True)
+    inp = os.fdopen(inp, 'rb')
+    outp = os.fdopen(outp, 'wb')
+    pid = os.fork()
+    if pid == 0:
+        inp.close()
+        try:
+            r = l(*args, **kwargs)
+            outp.write(pickle.dumps(r))
+            outp.flush()
+            outp.close()
+            os._exit(0)
+        except Exception:
+            os._exit(1)
+    else:
+        outp.close()
+        try:
+            s = inp.read()
+            if not s:
+                raise RuntimeError(f"nothing read from child process")
+            (pid_, status) = os.waitpid(pid, 0)
+            rv = os.waitstatus_to_exitcode(status)
+            if rv != 0:
+                raise RuntimeError(f"child process returned value {rv}")
+            obj = pickle.loads(s)
+        finally:
+            inp.close()
+    return obj
