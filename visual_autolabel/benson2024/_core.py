@@ -631,25 +631,30 @@ def score_dataframe(hem, suffix, rowinit=None, smooth=0, pair_tags=Ellipsis):
             labels = labels[labels > 0]
             # Calculate the dice scores.
             scores = dice_scores(lbl1, lbl2, smooth=smooth)
-            assert len(scores) == len(labels), \
-                "wrong number of labels/scores"
-            # Figure out if this pair of properties has a tag.
-            tag = pair_tags.get((k1,k2), '')
-            rows.extend(
-                [dict(
-                     rowinit,
-                     method1=k1, method2=k2, tag=tag,
-                     label=lbl,
-                     score=score)
-                 for (lbl,score) in zip(labels, scores)])
-            # Add a mean row also
-            rows.append(
-                dict(
-                    rowinit,
-                    method1=k1, method2=k2, tag=tag,
-                    label='mean',
-                    score=np.mean(scores)))
-    return pandas.DataFrame(rows)
+            if len(scores) != len(labels):
+                from warnings import warn
+                warn(
+                    f"skipping entry {rowinit} with wrong number of labels/scores:\n"
+                    f" label {k1} contains {set(np.unique(labels))}\n"
+                    f" label {k2} contains {set(np.unique(labels))}")
+            else:
+                # Figure out if this pair of properties has a tag.
+                tag = pair_tags.get((k1,k2), '')
+                rows.extend(
+                    [dict(
+                        rowinit,
+                        method1=k1, method2=k2, tag=tag,
+                        label=lbl,
+                        score=score)
+                     for (lbl,score) in zip(labels, scores)])
+                # Add a mean row also
+                rows.append(
+                    dict(
+                        rowinit,
+                        method1=k1, method2=k2, tag=tag,
+                        label='mean',
+                        score=np.mean(scores)))
+        return pandas.DataFrame(rows)
 score_dataframe.default_pair_tags = {
     (kk1, kk2): tag
     for pairings in [
