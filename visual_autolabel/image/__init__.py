@@ -15,18 +15,6 @@ from ._data import (
     LabelIntersectFeature,
     NullFeature
 )
-from ._hcp import (
-    HCPLinesImageCache,
-    HCPLinesDataset,
-    make_datasets,
-    make_dataloaders
-)
-from ._nyu import (
-    NYURetinotopyImageCache,
-    NYURetinotopyDataset,
-    make_datasets as nyu_make_datasets,
-    make_dataloaders as nyu_make_dataloaders
-)
 from ._model import (
     UNet
 )
@@ -37,16 +25,10 @@ __all__ = [
     'FlatmapImageCache',
     'BilateralFlatmapImageCache',
     'ImageCacheDataset',
-    'HCPLinesImageCache',
-    'HCPLinesDataset',
-    'NYURetinotopyImageCache',
-    'NYURetinotopyDataset',
-    'make_datasets',
-    'make_dataloaders',
-    'UNet',
     'LabelFeature',
     'LabelDiffFeature',
     'LabelUnionFeature',
     'LabelIntersectFeature',
-    'NullFeature'
+    'NullFeature',
+    'UNet'
 ]

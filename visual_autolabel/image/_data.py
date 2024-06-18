@@ -8,18 +8,13 @@
 
 # External Libries
 
-import os, sys, time, copy, warnings
+import os
 from collections import namedtuple
 from collections.abc import (Mapping, Sequence)
 
 import numpy as np
-import scipy as sp
-import nibabel as nib
-import pyrsistent as pyr
 import neuropythy as ny
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pandas as pd
 import torch, pimms
 from torch.utils.data import (Dataset, DataLoader)
 from torchvision.transforms import Resize
@@ -27,7 +22,6 @@ from pathlib import Path
 
 # Internal Tools
 from ..config import (
-    sids,
     default_partition,
     default_image_size,
     saved_image_size
@@ -93,6 +87,25 @@ class ImageCache:
 
     Parameters
     ----------
+    views : sequence or matrix of view-spec, optional
+        The views that together tile the image. A view is a combination of a
+        specification regarding the data being plotted and a position in the
+        resulting image at which it should be plotted. For example, to produce
+        bilateral input images that contain the an LH flatmap on the left and an
+        RH flatmap on the right, two views, one for each hemisphere, could be
+        used. The view specifications are ultimately a combination of a
+        dictionary containing arbitrary data for use in generating the image
+        (e.g., `{'hemisphere': 'lh'}`) and a set of image coordinates `(column0,
+        row0, width, height)` that specifies in pixels the subportion of the
+        image into which the view is to be plotted (the image coordinate and
+        shape values are normalized such that 0 is the upper-left and 1 is the
+        lower-right). Because typical views are evenly-tiled across an image, a
+        matrix of view dictionaries is automatically converted into an even
+        tiling of the dictionaries. For example, the view matrix
+        `[[{'hemisphere':'lh'}], [{'hemisphere':'rh'}]]` specifies that the
+        images contain two columns (and one row) of sub-images, the left of
+        which uses the view dict `{'hemisphere':'lh'}` and the right of which
+        uses `{'hemisphere':'rh'}`.
     image_size : int or 2-tuple of ints, optional
         The image size in pixels; if an integer is given, then that integer is
         used as the number of pixels for both the width and height of each
@@ -128,7 +141,7 @@ class ImageCache:
         default value `None` indicates that the method should wait forever.
     dtype : 'float32' or 'float64', optional
         The name of the PyTorch dtype to use. The default is `'float64'`.
-    cache : bool, optional
+    memcache : bool, optional
         Whether to use an in-memory cache of the features in addition to the
         disk-based caching. The default is `True`.
 
@@ -137,9 +150,13 @@ class ImageCache:
     # utility methods for initializing a set of views.
     @staticmethod
     def _matrix_shape(obj):
-        if not isinstance(obj, Sequence):
+        if isinstance(obj, np.ndarray):
+            if len(obj.shape) != 2:
+                raise ValueError("value must be a matrix")
+            return obj.shape
+        elif not isinstance(obj, Sequence):
             raise ValueError("value must be a matrix but is not a sequence")
-        if not all(isinstance(r, Sequence) for r in obj):
+        elif not all(isinstance(r, Sequence) for r in obj):
             raise ValueError("value must be a matrix but has non-sequence row")
         # We allow () to stand for a 0x0 matrix.
         if len(obj) == 0:
@@ -167,7 +184,8 @@ class ImageCache:
             sh = None
             for (k,v) in views.items():
                 vsh = ImageCache._matrix_shape(v)
-                if sh is None: sh = vsh
+                if sh is None:
+                    sh = vsh
                 elif sh != vsh:
                     raise ValueError("views values must have equal shapes")
             if sh is None: # views == {}
@@ -253,34 +271,81 @@ class ImageCache:
                 raise ValueError("timeout must be postiive or None")
         if not isinstance(memcache, bool):
             raise ValueError("memcache must be True or False")
-        self.options = ImageCacheOptions(image_size=image_size,
-                                         cache_path=cache_path,
-                                         overwrite=overwrite,
-                                         mkdirs=mkdirs,
-                                         mkdir_mode=mkdir_mode,
-                                         multiproc=multiproc,
-                                         timeout=timeout,
-                                         dtype=dtype,
-                                         memcache=memcache)
+        self.options = ImageCacheOptions(
+            image_size=image_size,
+            cache_path=cache_path,
+            overwrite=overwrite,
+            mkdirs=mkdirs,
+            mkdir_mode=mkdir_mode,
+            multiproc=multiproc,
+            timeout=timeout,
+            dtype=dtype,
+            memcache=memcache)
         # Now, initialize our cache (which is initially empty).
         self.cache = {}
     # The methods that are intended to be overloaded.
-    def plot_image(self, target, feature, axes, view=None):
-        """Plots a feature in grayscale on the given axes.
+    def plot_image(self, target, feature, im):
+        """Plots a feature in grayscale on the given image.
 
-        The `plot_image` method must be overloaded by subclasses of the
-        `ImageCache` type. The method is always passed the target ID and
-        feature name of the feature that is to be generated and a set of
-        matplotlib axes on which the feature should be plotted.
-
-        The `plot_image` method is an alternative to the `make_feature`
-        method. In a given subclass of `ImageCache`, only one must be
-        implemented for a given target ID and feature name; if one method raises
-        a `NotImplementedError` then the other method is attempted.
+        The `plot_image` method is called when the `fill_image` method fails;
+        while it may be overloaded by subclasses of the `ImageCache` type, the
+        `plot_view` method should typically be overloaded instead. This method
+        is always passed the target ID and feature name of the feature that is
+        to be generated and an image on which to plot the feature. It handles
+        the creation of axes and figures and the conversion of a figure to image
+        pixels while delegating the actual plotting of the individual views to
+        the `plot_view` method.
         """
-        #TODO: Either delete this method/interface or make it work with views.
+        # The fill_image approach failed, so we need to use pyplot and the
+        # plot_figure method.
+        import matplitlib.pyplot as plt
+        if self.views is None:
+            views = (((None, (0,0,1,1)),),)
+        else:
+            views = self.views
+        # Start by making a figure.
+        figsize = tuple(px / 72.0 for px in self.options.image_size)
+        dpi = 72
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+        try:
+            # Tidy things up for image saving.
+            fig.subplots_adjust(0,0,1,1,0,0)
+            fig.tight_layout(pad=0)
+            # Walk through the views and plot each on separate axes.
+            for (spec, rect) in views:
+                ax = fig.add_axes(rect)
+                ax.axis('off')
+                self.plot_view(target, feature, ax, spec)
+            # Go ahead and draw the figure:
+            fig.canvas.draw()
+            # We can get the image data directly:
+            rgb = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+            rgb = np.reshape(rgb, self.options.image_size + (3,))
+            im[:,:] = np.mean(rgb, axis=2)
+            im /= 255.0
+        finally:
+            # Close the figure.
+            plt.close(fig)
+    def plot_view(self, target, feature, axes, view):
+        """Paints the given feature and view onto the given pyplot axes.
+
+        The `plot_view` or method must be overloaded by subclasses of the
+        `ImageCache` type that use views to manage multi-panel or multi-part
+        images. The method is always passed the target ID, the feature name of
+        the feature that is to be generated, the view for which is being
+        plotted, and a set of matplotlib axes onto which the view should be
+        drawn.
+
+        If the `fill_view` or `fill_image` methods are overloaded and do not
+        raise `NotImplementedError` exceptions, then they are used instead of
+        the `plot_view` method. If neither `plot_view` nor the `fill_*` methods
+        are overloaded, then the `plot_image` method must be overloaded instead.
+
+        Note that all plotted images are converted to grayscale by averaging the
+        R, G, and B pixel values; plots should be made in grayscale.
+        """
         raise NotImplementedError(
-            f"plot_image not implemented for type {type(self)}")
+            f"plot_view not implemented for type {type(self)}")
     def fill_view(self, target, feature, image, view):
         """Paints the given feature and view into the given image array.
 
@@ -330,6 +395,8 @@ class ImageCache:
         a sub-image rectangle. This converts the former into the latter. If no
         such view can be found, `None` is returned.
         """
+        if self.views is None:
+            raise RuntimeError("view_rectangle requested but views is None")
         for (spec, rect) in self.views:
             if spec == view:
                 return rect
@@ -426,26 +493,7 @@ class ImageCache:
         except NotImplementedError:
             okay = False
         if not okay:
-            # The fill_image approach failed, so we need to use pyplot and the
-            # plot_figure method.
-            import matplitlib.pyplot as plt
-            # Start by making a figure and axes for the plots.
-            figsize = tuple(px / 72.0 for px in self.options.image_size)
-            dpi = 72
-            (fig,ax) = plt.subplots(1,1, figsize=figsize, dpi=dpi)
-            # Run the method that actually draws the figure.
-            self.plot_image(target_id, feature_name, ax)
-            # Tidy things up for image saving.
-            ax.axis('off')
-            fig.subplots_adjust(0,0,1,1,0,0)
-            fig.tight_layout(pad=0)
-            # Go ahead and draw the figure:
-            fig.canvas.draw()
-            # We can get the image data directly:
-            rgb = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-            rgb = np.reshape(rgb, self.options.image_size + (3,))
-            im[:,:] = np.mean(rgb, axis=2)
-            im /= 255.0
+            self.plot_image(target_id, feature_name, im)
         # The image has been generated; if we have a cache path, we can save the
         # file to disk.
         if self.options.cache_path is not None and filename is not None:

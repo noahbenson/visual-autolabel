@@ -7,25 +7,9 @@
 #===============================================================================
 # Dependencies
 
-import numpy as np
-import neuropythy as ny
 import torch
-from torch.utils.data import (Dataset, DataLoader)
 
-from ..config import (
-    sids,
-    default_partition,
-    default_image_size,
-    saved_image_size
-)
-from ..util import (
-    partition_id,
-    partition as make_partition,
-    is_partition,
-    trndata,
-    valdata,
-    convrelu
-)
+from ..util import convrelu
 
 
 #===============================================================================
