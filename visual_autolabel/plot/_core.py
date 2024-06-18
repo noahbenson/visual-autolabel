@@ -14,8 +14,7 @@ import torch
 import numpy as np
 import neuropythy as ny
 
-from ..config import (default_partition, sids)
-from ..util import (sectors_to_rings)
+from ..util import sectors_to_rings
 
 
 #===============================================================================
