@@ -14,14 +14,12 @@ import copy
 import inspect
 import json
 from collections.abc import Mapping
+from numbers import Number
 
 import torch
 import neuropythy as ny
 
 from ..config import (
-    default_partition,
-    default_image_size,
-    saved_image_size,
     sids
 )
 from ..util import (
@@ -31,7 +29,8 @@ from ..util import (
     trndata,
     valdata,
     loss as calc_loss,
-    autolog
+    autolog,
+    filter_options
 )
 from ..image import (
     UNet,
@@ -266,79 +265,37 @@ def train_model(model, optimizer, scheduler, dataloaders,
     model.load_state_dict(best_model_wts)
     return (model, best_loss, best_dice)
 
-def _make_dataloaders_and_model(in_features=None,  # make_dataloader args...
-                                out_features=None,
-                                dataloaders=None,
-                                features=None,
-                                partition=default_partition,
-                                raters=('A1', 'A2', 'A3', 'A4'),
-                                subjects=Ellipsis,
-                                exclusions=Ellipsis,
-                                image_size=Ellipsis,
-                                transform=None,
-                                input_transform=None,
-                                output_transform=None,
-                                hemis='lr',
-                                cache_image_size=Ellipsis,
-                                data_cache_path=None,
-                                overwrite=False,
-                                mkdirs=True,
-                                mkdir_mode=0o775,
-                                multiproc=True,
-                                timeout=None,
-                                dtype='float32',
-                                memcache=True,
-                                normalization=None,
-                                flatmap_cache=None,
-                                datasets=None, 
-                                shuffle=True,
-                                batch_size=5,
-                                model=None,  # model args...
-                                base_model='resnet18',
-                                init_weights=None,
-                                pretrained=False,
-                                logits=None):
+def _make_dataloaders_and_model(
+        # We require that the dataloaders argument be provided.
+        dataloaders,
+        # We also require the model argument.
+        model,
+        # The rest is just options that we will filter to the dataloader and
+        # model functions--if they are functions and not preconstructed models
+        # or dataloaders.
+        **kwargs):
     # First, make the dataloaders.
     if not is_partition(dataloaders):
-        if dataloaders is None: dataloaders = make_dataloaders
-        dataloaders = dataloaders(in_features, out_features,
-                                  subjects=subjects,
-                                  raters=raters,
-                                  features=features,
-                                  cache_path=data_cache_path,
-                                  image_size=image_size,
-                                  exclusions=exclusions,
-                                  transform=transform,
-                                  input_transform=input_transform,
-                                  output_transform=output_transform,
-                                  hemis=hemis,
-                                  cache_image_size=cache_image_size,
-                                  overwrite=overwrite,
-                                  mkdirs=mkdirs,
-                                  mkdir_mode=mkdir_mode,
-                                  multiproc=multiproc,
-                                  timeout=timeout,
-                                  dtype=dtype,
-                                  memcache=memcache,
-                                  normalization=normalization,
-                                  flatmap_cache=flatmap_cache,
-                                  partition=partition,
-                                  datasets=datasets,
-                                  shuffle=shuffle,
-                                  batch_size=batch_size)
+        # Dataloaders must be a function if it's not a partition.
+        if not callable(dataloaders):
+            raise TypeError(
+                'dataloaders must be a partition of DataLoader objects or a'
+                ' callable that constructs such partitions')
+        dataloader_opts = filter_options(dataloaders, **kwargs)
+        dataloaders = dataloaders(**dataloader_opts)
     dl_trn = trndata(dataloaders)
     dl_val = valdata(dataloaders)
     # Next, we make the starting model.
     if isinstance(model, torch.nn.Module):
         start_model = model
     else:
-        if model is None:
+        if model is Ellipsis:
             model = UNet
-        start_model = model(dl_trn.dataset.feature_count,
-                            dl_trn.dataset.segment_count,
-                            base_model=base_model,
-                            pretrained=pretrained,
-                            logits=logits)
+        model_opts = filter_options(model, **kwargs)
+        start_model = model(
+            dl_trn.dataset.feature_count,
+            dl_trn.dataset.segment_count,
+            **model_opts)
     # See if we need to initialize the weights.
     if init_weights is not None:
         from pathlib import Path
@@ -350,39 +307,8 @@ def _make_dataloaders_and_model(in_features=None,  # make_dataloader args...
         start_model.load_state_dict(weights)
     return (dataloaders, start_model)
 def build_model(
-        # Step 1: Build DataLoaders.
-        in_features=None,
-        out_features=None,
-        dataloaders=None,
-        features=None,
-        partition=default_partition,
-        raters=('A1', 'A2', 'A3', 'A4'),
-        subjects=Ellipsis,
-        exclusions=Ellipsis,
-        image_size=Ellipsis,
-        transform=None,
-        input_transform=None,
-        output_transform=None,
-        hemis='lr',
-        cache_image_size=Ellipsis,
-        data_cache_path=None,
-        overwrite=False,
-        mkdirs=True,
-        mkdir_mode=0o775,
-        multiproc=True,
-        timeout=None,
-        dtype='float32',
-        memcache=True,
-        normalization=None,
-        flatmap_cache=None,
-        datasets=None, 
-        shuffle=True,
-        batch_size=5,
-        # Step 2: Build Model.
-        model=None,
-        base_model='resnet18',
-        pretrained=False,
-        logits=None,
+        # Required options for building the initial model and the dataloaders.
+        dataloaders, model,
         # Step 3: Optimizer and Scheduler.
         lr=0.004,
         step_size=None,
@@ -398,7 +324,9 @@ def build_model(
         endl='',
         bce_weight=0.5,
         reweight=True,
-        smoothing=1):
+        smoothing=1,
+        # All remaining options are filtered into dataloaders and model.
+        **kwargs):
     """Creates, trains, and returns a PyTorch model.
 
     `build_model()` encapsulates the creation of the PyTrch model and the model
@@ -436,57 +364,20 @@ def build_model(
 
     Parameters
     ----------
-    dataloaders : partition of DataLoaders or None, optional
-        The PyTorch `DataLoader` objects to use. If `None`, then the dataloaders
-        are created using the `make_dataloaders()` function. Alternately,
-        `dataloaders` may be a function, In either case, the `features`, `sids`,
-        `partition`, `image_size`, `data_cache_path`, `datasets`, `shuffle`,
-        and `batch_size` parameters are passed to the function. If a partition
-        of dataloaders is given, then these options are instead ignored.
-    features : 'func' or 'anat' or 'both' or None, optional
-        The type of input images that the dataset uses: functional data
-        (`'func'`), anatomical data (`'anat'`), or both (`'both'`). If `None`
-        (the default), then a mapping is returned with each input dataset type
-        as values and with `'func'`, `'anat'`, and `'both'` as keys.
-    sids : list-like, optional
-        An iterable of subject-IDs to be included in the datasets. By default,
-        the subject list `visual_autolabel.util.sids` is used.
-    partition : partition-like, optional
-        How to make the partition of sujbect-IDs; the partition is made using
-        `visual_autolabel.utils.partitoin(sids, how=partition)`.
-    image_size : int or None, optional
-        The width of the training images, in pixels; if `None`, then 512 is
-        used (default: `None`).
-    data_cache_path : str or None, optional
-        The path in which the dataset will be cached, or None if no cache is to
-        be used (the default).
-    datasets : None or mapping of datasets, optional
-        A mapping of datasets that should be used. If the keys of this mapping
-        are `'trn'` and `'val'` then all of the above arguments are ignored and
-        these datasets are used for the dataloaders. Otherwise, if `features` is
-        a key in `datasets`, then `datasets[features]` is used and the other
-        options above are ignored. Otherwise, if `datasets` is `None` (the
-        default), then the datasets are created using the above options.
-    shuffle : boolean, optional
-        Whether to shuffle the IDs when loading samples (default: `True`).
-    batch_size : int, optional
-        The batch size for samples from the dataloader (default: 5).
-    model : PyTorch Module or None, optional
-        The PyTorch `Module` (model) object to train, or `None` (the default),
-        in which a `UNet` is created, and the options `pretrained_resnet`,
-        `middle_branchs`, and `apply_sigmoid` are passed to it. Alternately,
-        `model` may be a function that returns a PyTorch module, and these same
-        optional parameters are passed to it. If a `Module` is given, then these
-        options are instead ignored.
-    pretrained_resnet : boolean, optional
-        Whether to use a pretrained resnet for the backbone (default: False).
-    middle_branches : boolean, optional
-        Whether to include a set of branched filters in the middle of the
-        `UNet`. These filters can improve the model's performance in some cases.
-        The default is `False`.
-    apply_sigmoid : boolean, optional
-        Whether to apply the sigmoid function to the outputs. The default is
-        `False`.
+    dataloaders : partition of DataLoaders or function
+        The PyTorch `DataLoader` objects to use. If given a function that
+        constructs the dataloaders, then they are created by providing this
+        function with all keyword arguments passed to `build_model` that the
+        function accepts. Alternatively, `dataloaders` may be a valid partition
+        of a training and validation dataloader (e.g., a dict with keys `'trn'`
+        and `'val'` or a tuple of `(trn, val)`).
+    model : PyTorch Module or function
+        The PyTorch `Module` (model) object to train, or a function that
+        generates such a model. If a function is provided, then it must accept
+        as its first two arguments the number of input features that are being
+        used in training and the number of segments being predicted; beyond
+        these positional arguments, all options passed to `build_model` that the
+        function accepts are forwarded to it.
     lr : float, optional
         The initial learning rate for the optimizer. The default is 0.004.
     step_size : int or None, optional
@@ -535,47 +426,32 @@ def build_model(
         then calculating the mean across classes. If `False`, then the raw BCE
         across all pixels, classes, and batches is returned (the default).
     smoothing : number, optional
-        The smoothing coefficient `s` to use with the dice-coefficient liss.
+        The smoothing coefficient `s` to use with the dice-coefficient loss.
         The default is `1`.
+    **kwargs
+        All additional arguments are passed along to either the `dataloaders`
+        or the `model` function. If either of these arguments is a function that
+        creates the required object, then options accepted by that function are
+        automatically passed to it.
 
     Returns
     -------
     tuple
         A 3-tuple of `(trained_model, best_loss, best_dice_loss)`.
+
     """
+    allopts = dict(
+        kwargs,
+        lr=lr, step_size=step_size, gamma=gamma,
+        nthreads=nthreads, nice=nice, num_epochs=num_epochs,
+        model_cache_path=model_cache_path, device=device,
+        hlines=hlines, logger=logger, endl=endl,
+        bce_weight=bce_weight, reweight=reweight,
+        smoothing=smoothing)
     # First, create the dataloaders and starting model.
     (dataloaders, start_model) = _make_dataloaders_and_model(
-        in_features=in_features,
-        out_features=out_features,
-        dataloaders=dataloaders,
-        subjects=subjects,
-        raters=raters,
-        features=features,
-        data_cache_path=data_cache_path,
-        image_size=image_size,
-        exclusions=exclusions,
-        transform=transform,
-        input_transform=input_transform,
-        output_transform=output_transform,
-        hemis=hemis,
-        cache_image_size=cache_image_size,
-        overwrite=overwrite,
-        mkdirs=mkdirs,
-        mkdir_mode=mkdir_mode,
-        multiproc=multiproc,
-        timeout=timeout,
-        dtype=dtype,
-        memcache=memcache,
-        normalization=normalization,
-        flatmap_cache=flatmap_cache,
-        partition=partition,
-        datasets=datasets,
-        shuffle=shuffle,
-        batch_size=batch_size,
-        model=model,
-        base_model=base_model,
-        pretrained=pretrained,
-        logits=logits)
+        dataloaders, model,
+        **allopts)
     # Next, create the optimizer.
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, start_model.parameters()),
@@ -599,17 +475,18 @@ def build_model(
     if device is None:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     start_model = start_model.to(device)
-    return train_model(start_model, optimizer, scheduler, dataloaders,
-                       smoothing=smoothing,
-                       num_epochs=num_epochs,
-                       cache_path=model_cache_path,
-                       logger=logger,
-                       bce_weight=bce_weight,
-                       reweight=reweight, 
-                       device=device,
-                       hlines=hlines)
+    return train_model(
+        start_model, optimizer, scheduler, dataloaders,
+        smoothing=smoothing,
+        num_epochs=num_epochs,
+        cache_path=model_cache_path,
+        logger=logger,
+        bce_weight=bce_weight,
+        reweight=reweight, 
+        device=device,
+        hlines=hlines)
 
-def run_modelplan(modelplan, **kw):
+def run_modelplan(modelplan, dataloaders, model, **kwargs):
     """Executes a model-plan, which builds and trains a model.
 
     The `run_modelplan` is intended as a way to build and train a model using a
@@ -629,49 +506,57 @@ def run_modelplan(modelplan, **kw):
     returns the current best model.
     """
     # First, create the dataloaders and the model.
-    make_sig = inspect.signature(_make_dataloaders_and_model)
-    make_opts = {k: kw[k] for (k,v) in make_sig.parameters.items() if k in kw}
-    (dataloaders, start_model) = _make_dataloaders_and_model(**make_opts)
+    make_opts = filter_options(_make_dataloaders_and_model, **kwargs)
     # We want to eliminate these options--in the future we will just pass the
     # model and dataloaders.
-    for k in make_opts.keys(): del kw[k]
-    kw0 = kw # Save the original arguments.
+    for k in make_opts.keys():
+        del kwargs[k]
+    # Now make the dataloaders:
+    make_opts = dict(
+        {'dataloaders':dataloaders, 'model':model},
+        **make_opts)
+    (dataloaders, model) = _make_dataloaders_and_model(**make_opts)
+    # Save the original arguments (with dataloader/model arguments fixed).
+    kwargs = dict(
+        {'dataloaders':dataloaders, 'model':model},
+        **kwargs)
+    # Extract a few options we need...
+    mkdirs = kwargs.get('mkdirs', True)
+    mkdir_mode = kwargs.get('mkdir_mode', 0o775)
     # We also use the model cache path and logger if they are provided.
-    model_cache_path = kw0.get('model_cache_path', Ellipsis)
-    if model_cache_path is Ellipsis:
-        from ..config import model_cache_path
+    model_cache_path = kwargs0.get('model_cache_path', None)
     # Prepare for the rounds of training.
-    model = start_model
     best_dice = 1e10
     best_loss = 1e10
     best_mdl = model # We track best model by dice, not combined loss.
     best_mdl_wts = copy.deepcopy(model.state_dict())
-    build_sig = inspect.signature(build_model)
-    for (ii,step_kw) in enumerate(modelplan):
+    for (ii,step_opts) in enumerate(modelplan):
         # The new instructions are a the passed options, overwritten by the
         # specific model plan step options.
-        kw = dict(kw0)
-        kw.update(step_kw)
-        logger = kw.get('logger', print)
-        # If there are updates to the dataloaders, we regenerate them.
-        opts = {k:kw[k] for k in make_sig.parameters.keys() if k in step_kw}
-        if len(opts) > 0:
-            tmp = dict(make_opts)
-            tmp.update(opts)
-            dataloaders = _make_dataloaders_and_model(**tmp)[0]
-        # We can now add the dataloaders and model parameters.
-        kw['dataloaders'] = dataloaders
-        kw['model'] = model
+        opts = dict(kwargs)
+        opts.update(step_opts)
+        logger = opts.get('logger', print)
+        # Note that we do not support regeneration of dataloaders or the model
+        # when their parameters are passed in as step options; provide a warning
+        # in such a case.
+        step_make_opts = filter_options(_make_dataloaders_and_model, step_opts)
+        if len(step_make_opts) > 0:
+            from warnings import warn
+            warn(
+                f"step options contain dataloader/model options, which are"
+                f" ignored after initialization:"
+                f" {sorted(step_make_opts.keys())}")
         # Print a blank line between rounds.
-        if ii > 0 and logger is not None: logger("")
+        if ii > 0 and logger is not None:
+            logger("")
         # Update the cache-path if we have one cache path.
         if model_cache_path is not None:
-            cpath = os.path.join(model_cache_path, 'round%02d' % (ii + 1,))
-            if not os.path.isdir(cpath): os.makedirs(cpath, mode=0o775)
+            cpath = os.path.join(model_cache_path, f'round{ii+1:02d}')
+            if mkdirs and not os.path.isdir(cpath):
+                os.makedirs(cpath, mode=mkdir_mode, exist_ok=True)
             kw['model_cache_path'] = cpath
-       # Run the buiid-model function.
-        opts = {k:kw[k] for k in build_sig.parameters.keys() if k in kw}
-        (model,loss,dice) = build_model(**opts)
+        # Run the build-model function.
+        (model, loss, dice) = build_model(**opts)
         if dice < best_dice:
             best_dice = dice
             best_mdl = model
@@ -681,28 +566,11 @@ def run_modelplan(modelplan, **kw):
     return (best_mdl,best_loss,best_dice)
 
 def train_until(in_features, out_features, training_plan,
-                until=None,
                 model_key=None,
-                raters=('A1', 'A2', 'A3', 'A4'),
-                base_model='resnet18',
-                init_weights=None,
-                dataloaders=None,
-                partition=None,
-                features=None,
-                pretrained=False,
-                lr=0.00375,
-                gamma=0.9,
-                batch_size=5,
-                num_epochs=10,
-                model_cache_path=None,
-                data_cache_path=None,
-                image_size=Ellipsis,
-                logits=True,
-                multiproc=True,
-                flatmap_cache=True,
-                create_directories=True,
-                create_mode=0o755,
-                logger=print):
+                until=None,
+                mkdirs=True,
+                mkdir_mode=0o775,
+                **kwargs):
     """Continuously runs the given training plan for models until an interrupt.
         
     Runs training on `'anat'`, `'func'`, and `'both'` models, sequentially,
@@ -720,36 +588,28 @@ def train_until(in_features, out_features, training_plan,
         A string that should be appended, as a sub-directory name, to the
         `model_cache_path`; this argument allows one to save model training
         to a specific sub-directory of the `model_cache_path` directory.
-    partition : partition-like or None
-        The partition to use. If `None`, then a new partition is drawn for
-        every set of rounds of training.
-    features : dict-like or None
-        The features that should be used in training. If `None` (the default),
-        then the dictionary `train_until_features` is used. Otherwise,
-        `features` must be a dict-like object whose keys are the names of the
-        feature-set and whose values are the features to pass to the training
-        routine.
-    model_cache_path : str, optional
-        The cache-path to use for the model training.
-    data_cache_path : str, optional
-        The cache-path from which data for the model training should be loaded.
     until : int or None, optional
         If an integer is provided, then only `until` groups of trainings are
         performed, then the result is returned. If `None`, then the training
         continues until a `KeyboardInterrupt` is caught. The default is `None`.
-    create_directories : boolean, optional
+    mkdirs : boolean, optional
         Whether to create cache directories that do not exist (default `True`).
-    create_mode : int, optional
+    mkdir_mode : int, optional
         What mode to use when creating directories (default: `0o755`).
     logger : function or None, optional
         The logging function to use. If `None`, then nothing is logged. The
         default is `print`.
+    **kwargs
+        Additional named parameters are passed along to the `run_modelplan`
+        function; these must at a minimum provide for a dataset partition and
+        a model.
     """
+    logger = **kwargs.get('logger', print)
     if model_key is not None:
         if model_cache_path is not None:
             model_cache_path = os.path.join(model_cache_path, model_key)
-            if create_directories and not os.path.isdir(model_cache_path):
-                os.makedirs(model_cache_path, create_mode)
+            if mkdirs and not os.path.isdir(model_cache_path):
+                os.makedirs(model_cache_path, mkdir_mode)
     if isinstance(in_features, str):
         in_features = (in_features,)
     if isinstance(in_features, (tuple, list, set)):
@@ -770,38 +630,57 @@ def train_until(in_features, out_features, training_plan,
         out_features = tuple(out_features)
     else:
         raise ValueError("out_features must be a list, set, str, or tuple")
+    partition = kwargs.get('partition', Ellipsis)
+    if partition is Ellipsis:
+        from ..config import default_partition
+        partition = default_partition
+    # Options we need for below.
+    lr = kwargs.get('lr', 0.004)
+    gamma = kwargs.get('gamma', 0.9)
+    batch_size = kwargs.get('batch_size')
+    num_epochs = kwargs.get('num_epochs', 10)
     if model_cache_path is not None:
-        if not os.path.isdir(model_cache_path) and create_directories:
-            os.makedirs(model_cache_path, create_mode)
+        if not os.path.isdir(model_cache_path) and mkdirs:
+            os.makedirs(model_cache_path, mkdir_mode)
         # Go ahead and save the plan out to a json.
         with open(os.path.join(model_cache_path, "plan.json"), "wt") as fl:
             json.dump(training_plan, fl)
         # And the options dictionary.
         with open(os.path.join(model_cache_path, "options.json"), "wt") as fl:
-            opts = dict(until=until, model_key=model_key, base_model=base_model,
-                        partition=partition, lr=lr, batch_size=batch_size,
-                        pretrained=pretrained, num_epochs=num_epochs,
-                        feature_names=list(features.keys()))
+            opts = dict(
+                until=until, model_key=model_key, base_model=base_model,
+                partition=partition, lr=lr, batch_size=batch_size,
+                pretrained=pretrained, num_epochs=num_epochs,
+                feature_names=(list(features.keys()) if features else None))
             json.dump(opts, fl)
-    if data_cache_path is not None:
-        if not os.path.isdir(data_cache_path) and create_directories:
-            os.makedirs(data_cache_path, create_mode)
+    if dataset_cache_path is not None:
+        if not os.path.isdir(dataset_cache_path) and mkdirs:
+            os.makedirs(dataset_cache_path, mkdir_mode, exist_ok=True)
     training_history = []
     try:
-        if logger: logger('')
+        if logger:
+            logger('')
         iterno = 0
         while True:
-            if until is not None and iterno >= until: break
+            if until is not None and iterno >= until:
+                break
             iterno += 1
             # Make one partition for all three minimization types.
             if partition is None:
-                part = make_partition(sids, how=(0.8, 0.2))
+                # We regenerate the partition each round; sids is a required
+                # option in this case.
+                from ..config import default_partition
+                part = make_partition(kwargs['sids'], how=default_partition)
+            elif is_partition(partition):
+                (trn,val) = (trndata(partition), valdata(partition))
+                if isinstance(trn, Number) and isinstance(val, Number):
+                    part = make_partition(kwargs['sids'], how=partition)
             else:
-                part = make_partition(sids, how=partition)
+                part = make_partition(kwargs['sids'], how=partition)
             pid = partition_id(part)
             if logger:
-                logger('%-15s%70s' % ('Iteration %d' % iterno,
-                                      'Partition ID: %s' % pid))
+                els = ('Iteration %d' % iterno, 'Partition ID: %s' % pid)
+                logger('%-15s%70s' % els)
                 logger('=' * 85)
             for (dnm,infeats) in in_features.items():
                 if logger:
@@ -809,39 +688,19 @@ def train_until(in_features, out_features, training_plan,
                     logger(dnm + ' ' + '-'*(85 - len(dnm) - 1))
                     logger('')
                 t0 = time.time()
-                (model, loss, dice) = run_modelplan(
-                    training_plan,
-                    in_features=infeats,
-                    out_features=out_features,
-                    raters=raters,
-                    dataloaders=dataloaders,
-                    partition=part,
-                    base_model=base_model,
-                    init_weights=init_weights,
-                    features=features,
-                    pretrained=pretrained,
-                    lr=lr,
-                    gamma=gamma,
-                    batch_size=batch_size,
-                    num_epochs=num_epochs,
-                    model_cache_path=None,
-                    data_cache_path=data_cache_path,
-                    image_size=image_size,
-                    logits=logits,
-                    multiproc=multiproc,
-                    flatmap_cache=flatmap_cache,
-                    logger=logger)
+                runopts = filter_options(run_modelplan, **kwargs)
+                (model, loss, dice) = run_modelplan(training_plan, **runopts)
                 t1 = time.time()
-                row = dict(input=dnm, loss=loss, dice=dice,
-                           training_time=(t1-t0))
+                row = dict(
+                    input=dnm, loss=loss, dice=dice, training_time=(t1-t0))
                 # See if this one is good enough that it needs to be saved.
                 if model_cache_path is not None:
                     hh = [d for d in training_history if d['input'] == dnm]
                     hh = sorted(hh, key=lambda d:d['dice'])
                     if len(hh) == 0 or hh[0]['dice'] > dice:
                         # We need to save out this model!
-                        savepath = os.path.join(model_cache_path,
-                                                f"best_{dnm}.pt")
+                        savepath = os.path.join(
+                            model_cache_path, f"best_{dnm}.pt")
                         torch.save(model.state_dict(), savepath)
                 training_history.append(row)
                 if logger: logger('')
@@ -851,8 +710,9 @@ def train_until(in_features, out_features, training_plan,
             logger('KeyboardInterrupt caught; ending training.')
     training_history = ny.to_dataframe(training_history)
     if model_cache_path is not None:
-        ny.save(os.path.join(model_cache_path, "training.tsv"),
-                training_history)
+        ny.save(
+            os.path.join(model_cache_path, "training.tsv"),
+            training_history)
     return training_history
 
 def load_training(model_key,
@@ -921,8 +781,9 @@ def load_training(model_key,
                     part = make_partition(sids, part)
     except Exception:
         part = None
-    return dict(history=hist,
-                models=mdls,
-                partition=part,
-                options=opts,
-                plan=plan)
+    return dict(
+        history=hist,
+        models=mdls,
+        partition=part,
+        options=opts,
+        plan=plan)
