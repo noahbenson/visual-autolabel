@@ -5,39 +5,37 @@
 """Tooling and functions specific to the paper Benson et al, 2024.
 """
 
+from . import config
+
 from ._core import (
-    dwi_filename_pattern_init as dwi_filename_pattern,
-    DWIFeature,
-    dwi_features,
-    hcp_features,
-    nyu_features,
-    input_descriptions,
-    output_descriptions,
-    vaonly_properties,
-    econly_properties,
-    t1only_properties,
-    t2only_properties,
-    dwonly_properties,
-    full_properties,
-    hcp_input_properties,
-    hcp_output_properties,
-    hcp_properties,
-    nyu_input_properties,
-    nyu_output_properties,
-    nyu_properties,
-    hcp_dataset,
-    nyu_dataset,
-    hcp_all_datasets,
-    nyu_all_datasets,
-    hcp_flatmaps,
-    nyu_flatmaps,
-    hcp_all_flatmaps,
-    nyu_all_flatmaps,
-    benson2024_unet,
-    benson2024_data,
-    hcp_partition,
-    nyu_partition,
     score_dataframe,
-)
+    benson2024_unet,
+    benson2024_data)
+
+from . import hcp
+from . import nyu
+
+from . import analysis
+
+
 # We import the UNet used as a convenience.
 from ..image import UNet
+
+# These are descriptions of the features used in the training/analysis.
+input_descriptions = {
+    'null': 'Nothing',
+    'anat': 'T1 Only',
+    't1t2': 'T1 & T2',
+    'trac': 'T1 & DWI',
+    'nofn': 'T1, T2, & DWI',
+    'func': 'T1 & Retinotopy',
+    'nodw': 'T1, T2, & Retinotopy',
+    'not2': 'T1, DWI, & Retinotopy',
+    'full': 'T1, T2, DWI, & Retinotopy',
+    'tmpl': 'Benson et al. (2014), using T1',
+    'warp': 'Benson & Winawer (2018), using T1 & Retinotopy',
+    'rely': 'Inter-rater Reliability'}
+output_descriptions = {
+    'area': 'Visual Area Labels',
+    'ring': 'Visual Ring Labels',
+    'sect': 'Visual Sector Labels'}
