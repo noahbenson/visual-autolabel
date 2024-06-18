@@ -559,7 +559,7 @@ def sectors_to_rings(visual_sector, visual_area):
 # Other Utilities
 
 def autolog(filename, stdout=True, clear=False,
-            create_directories=True, create_mode=0o755):
+            mkdirs=True, mkdir_mode=0o775):
     """Returns a function that can be used as a logger for the given filename.
     
     `autolog(filename)` returns a function that acts like the `print()`
@@ -575,14 +575,15 @@ def autolog(filename, stdout=True, clear=False,
     clear : boolean, optional
         If `True`, then clears the file before returning; otherwise, the file
         is left as-is, and text is appended (the default).
-    create_directories : boolean, optional
+    mkdirs : boolean, optional
         Whether to create cache directories that do not exist (default `True`).
-    create_mode : int, optional
-        What mode to use when creating directories (default: `0o755`).
+    mkdir_mode : int, optional
+        What mode to use when creating directories (default: `0o775`).
     """
-    if create_directories:
+    if mkdirs:
         (flpath,flnm) = os.path.split(filename)
-        if not os.path.isdir(flpath): os.makedirs(flpath, mode=create_mode)
+        if not os.path.isdir(flpath):
+            os.makedirs(flpath, mode=mkdir_mode, exist_ok=True)
     if clear and os.path.isfile(filename):
         # Truncate the file; don't remove it.
         with open(filename, 'w') as fl: pass
@@ -804,3 +805,8 @@ def forkrun(f, *args, **kwargs):
         finally:
             inp.close()
     return obj
+def filter_options(fn, **opts):
+    """Returns a dict of keyword arguments accepted by `fn` from `opts`."""
+    from inspect import signature
+    sig = signature(fn)
+    return {k: opts[k] for (k,v) in sig.parameters.items() if k in opts}

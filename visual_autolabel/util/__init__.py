@@ -30,7 +30,8 @@ from ._core import (
     rotation_align_points,
     rigid_align_points,
     rigid_align_cortices,
-    forkrun
+    forkrun,
+    filter_options
 )
 
 __all__ = [
@@ -51,5 +52,6 @@ __all__ = [
     "autolog",
     "rigid_align_points",
     "rigid_align_cortices",
-    "forkrun"
+    "forkrun",
+    "filter_options"
 ]
