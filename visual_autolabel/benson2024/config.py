@@ -32,6 +32,9 @@ dataset_cache_path : path-like
 model_cache_path : path-like
     The directory where models trained for the project are stored. Each model
     is stored in a subdirectory of this directory whose name is the model tag.
+analysis_path : path-like
+    The directory in which analysis data (primarily the scores dataframes) are
+    stored.
 dwi_filename_pattern
     The pattern to be used for DWI filenames. This should be a string or a tuple
     of strings, each of which is formatted (via the `format` method) using the
@@ -94,6 +97,10 @@ dataset_cache_path = '/data/visual-autolabel/datasets'
 #-------------------------------------------------------------------------------
 # model_cache_path
 model_cache_path = '/data/visual-autolabel/models'
+
+#-------------------------------------------------------------------------------
+# analysis_path
+analysis_path = '/data/visual-autolabel/analysis'
 
 #-------------------------------------------------------------------------------
 # dwi_filename_pattern
