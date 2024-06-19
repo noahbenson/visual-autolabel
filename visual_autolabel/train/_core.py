@@ -19,9 +19,6 @@ from numbers import Number
 import torch
 import neuropythy as ny
 
-from ..config import (
-    sids
-)
 from ..util import (
     is_partition,
     partition as make_partition,
@@ -30,12 +27,9 @@ from ..util import (
     valdata,
     loss as calc_loss,
     autolog,
-    filter_options
-)
+    filter_options)
 from ..image import (
-    UNet,
-    make_dataloaders
-)
+    UNet)
 
 #-------------------------------------------------------------------------------
 # Logging
@@ -604,7 +598,7 @@ def train_until(in_features, out_features, training_plan,
         function; these must at a minimum provide for a dataset partition and
         a model.
     """
-    logger = **kwargs.get('logger', print)
+    logger = kwargs.get('logger', print)
     if model_key is not None:
         if model_cache_path is not None:
             model_cache_path = os.path.join(model_cache_path, model_key)
@@ -715,10 +709,24 @@ def train_until(in_features, out_features, training_plan,
             training_history)
     return training_history
 
+def lookup_sids(dataset):
+    """Returns a list of subject IDs for the given dataset name.
+
+    The only argument, `dataset`, should be either `'hcp'` or `'nyu'`.
+    """
+    if dataset == 'hcp':
+        from ..benson2024.config import hcp_sids
+        return hcp_sids
+    elif dataset == 'nyu':
+        from ..benson2024.config import nyu_sids
+        return nyu_sids
+    else:
+        raise ValueError("unrecognized dataset: {dataset}")
 def load_training(model_key,
                   model_cache_path=None,
                   partition_log_marker='Partition ID:',
-                  base_model='resnet18'):
+                  base_model='resnet18',
+                  sids='hcp'):
     """Loads data from a directory written to during `train_until`.
     
     `load_training(model_key)` can be used to load data saved by a call to
@@ -773,6 +781,7 @@ def load_training(model_key,
             mdls[fl[5:-3]] = mdl
     # Load in the partition as well.
     log_path = os.path.join(path, 'training.log')
+    sids = lookup_sids(sids)
     try:
         with open(log_path, 'rt') as fl:
             for ln in fl:
