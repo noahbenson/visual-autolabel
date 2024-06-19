@@ -31,10 +31,6 @@ sids : NumPy array of ints
 #-------------------------------------------------------------------------------
 # Configuration
 from . import config
-from .config import (
-    sids,
-    nyusids
-)
 
 #-------------------------------------------------------------------------------
 # Utilities
@@ -51,8 +47,7 @@ from .util import (
     loss,
     dice_scores,
     dice_score,
-    autolog
-)
+    autolog)
 
 #-------------------------------------------------------------------------------
 # Image-based Data and Model
@@ -61,11 +56,7 @@ from .image import (
     FlatmapFeature,
     LabelFeature,
     NullFeature,
-    HCPLinesDataset,
-    UNet,
-    make_datasets,
-    make_dataloaders
-)
+    UNet)
 
 #-------------------------------------------------------------------------------
 # Model Training
@@ -75,8 +66,7 @@ from .train import (
     build_model,
     run_modelplan,
     train_until,
-    load_training
-)
+    load_training)
 
 #-------------------------------------------------------------------------------
 # Plotting Utilities
@@ -90,8 +80,6 @@ from . import benson2024
 
 #===============================================================================
 __all__ = [
-    "sids",
-    "nyusids",
     "partition",
     "partition_id",
     "is_partition",
@@ -101,12 +89,12 @@ __all__ = [
     "bce_loss",
     "loss",
     "HCPLinesDataset",
-    "make_datasets",
-    "make_dataloaders",
     "UNet",
     "train_model",
     "build_model",
     "run_modelplan",
     "train_until",
-    "load_training"
+    "load_training",
+    "plot",
+    "benson2024"
 ]

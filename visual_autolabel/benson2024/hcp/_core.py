@@ -17,7 +17,7 @@ import neuropythy as ny
 from ...image import (
     FlatmapFeature,
     NullFeature)
-from ..plot import (
+from ...plot import (
     add_inferred,
     add_prior,
     add_raterlabels)
@@ -249,7 +249,9 @@ def dataset(inputs, outputs,
         sids = hcp_sids
     if cache_path is Ellipsis:
         from ..config import dataset_cache_path
-        cache_path = os.path.join(dataset_cache_path, 'HCP')
+        if dataset_cache_path is not None:
+            dataset_cache_path = os.path.join(dataset_cache_path, 'HCP')
+        cache_path = dataset_cache_path
     if isinstance(inputs, str):
         inputs = input_properties.get(inputs, (inputs,))
     if isinstance(outputs, str):
@@ -318,8 +320,10 @@ def flatmaps(sid, datasets,
     sub = ny.data['hcp_lines'].subjects[sid]
     # Parse some arguments.
     if dataset_cache_path is Ellipsis:
-        from ..config import dataset_cache_path as _dcp
-        dataset_cache_path = _dcp
+        from ..config import dataset_cache_path as dcp
+        if dcp is not None:
+            dcp = os.path.join(dcp, 'HCP')
+        dataset_cache_path = dcp
     if model_cache_path is Ellipsis:
         from ..config import model_cache_path as _mcp
         model_cache_path = _mcp
@@ -338,6 +342,7 @@ def flatmaps(sid, datasets,
         for target in ds0.targets
         if target['subject'] == sid)
     # We now make an LH and an RH dataset.
+    from ..analysis import unet
     fmaps = []
     for h in ['lh','rh']:
         hem = sub.hemis[h]
@@ -358,7 +363,7 @@ def flatmaps(sid, datasets,
                     'visual_ring': slice(3,8)}
             else:
                 raise ValueError(f"invalid output: {output}")
-            mdl = benson2024_unet(
+            mdl = unet(
                 inp, outp, 'model',
                 model_cache_path=model_cache_path)
             labels = ds.predlabels(targ, mdl, view=view, labelsets=labelsets)
@@ -366,15 +371,15 @@ def flatmaps(sid, datasets,
                 ps[f"{inp}_{k}"] = lbl
         fmaps.append(fmap.with_prop(ps))
     return tuple(fmaps)
-def all_flatmaps(datasets, sids=None,
+def all_flatmaps(datasets, sids=Ellipsis,
                  add_inferred=True, add_prior=True, add_raters=True,
-                 dataset_cache_path=None,
-                 model_cache_path=None):
+                 dataset_cache_path=Ellipsis,
+                 model_cache_path=Ellipsis):
     """Generates a lazy-map of all evaluation flatmaps for all HCP subjects.
     
     See also `hcp_flatmaps`."""
     import pimms
-    if sids is None:
+    if sids is Ellipsis:
         from ..config import hcp_sids as sids
     return pimms.lmap(
         {sid: ny.util.curry(

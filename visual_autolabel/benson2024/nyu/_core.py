@@ -17,7 +17,7 @@ import neuropythy as ny
 from ...image import (
     FlatmapFeature,
     NullFeature)
-from ..plot import (
+from ...plot import (
     add_inferred,
     add_prior,
     add_raterlabels)
@@ -35,10 +35,10 @@ input_properties = {
     'null': ('zeros',),
     'anat': t1only_properties,
     'func': t1only_properties + fnonly_properties,
-}
+    # 'fnyu' is used to specify the functional CNN retrained on the NYU dataset.
+    'fnyu': t1only_properties + fnonly_properties}
 output_properties = {
-    'area': vaonly_properties,
-}
+    'area': vaonly_properties}
 # All the properties and additional features (none for this dataset).
 properties = dict(input_properties, **output_properties)
 features = {}
@@ -94,11 +94,13 @@ def dataset(inputs, outputs='area',
         sids = nyu_sids
     if cache_path is Ellipsis:
         from ..config import dataset_cache_path
+        if dataset_cache_path is not None:
+            dataset_cache_path = os.path.join(dataset_cache_path, 'NYU')
         cache_path = os.path.join(dataset_cache_path, 'NYU')
     if isinstance(inputs, str):
         inputs = input_properties.get(inputs, (inputs,))
     if isinstance(outputs, str):
-        outputs = nyu_output_properties.get(outputs, (outputs,))
+        outputs = output_properties.get(outputs, (outputs,))
     if partition is None:
         part = (sids, ())
     elif partition is Ellipsis:
@@ -126,7 +128,7 @@ def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
     validation subsets. To create datasets for only a subset of the subjects,
     you can pass the `sids` option (either as a named argument or as the first
     positional argument). To obtain the training/validation partition used in
-    the paper, see the `nyu_partition` function.
+    the paper, see the `nyu.partition` function.
     """
     return {
         (inp, outp): dataset(
@@ -141,8 +143,8 @@ def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
         if (include_sect or outp != 'sect')}
 def flatmaps(sid, datasets,
              add_prior=True,
-             dataset_cache_path=None,
-             model_cache_path=None):
+             dataset_cache_path=Ellipsis,
+             model_cache_path=Ellipsis):
     """Returns a nested lazy-map of all the requested evaluation flatmaps.
     
     This function returns flatmaps that are ready to be used for evaluation of
@@ -162,12 +164,14 @@ def flatmaps(sid, datasets,
     # Get the subject.
     sub = ds0.image_cache.subjects[sid]
     # Parse some arguments.
-    if dataset_cache_path is None:
-        from ..config import dataset_cache_path as _dcp
-        dataset_cache_path = _dcp
+    if dataset_cache_path is Ellipsis:
+        from ..config import dataset_cache_path as dcp
+        if dcp is not None:
+            dcp = os.path.join(dcp, 'NYU')
+        dataset_cache_path = dcp
     if model_cache_path is None:
-        from ..config import model_cache_path as _mcp
-        model_cache_path = _mcp
+        from ..config import model_cache_path as mcp
+        model_cache_path = mcp
     # Add extra properties as requested:
     if add_prior:
         from ...plot import add_prior
@@ -177,6 +181,7 @@ def flatmaps(sid, datasets,
         for target in ds0.targets
         if target['subject'] == sid)
     # We now make an LH and an RH dataset.
+    from ..analysis import unet
     fmaps = []
     for h in ['lh','rh']:
         hem = sub.hemis[h]
@@ -188,25 +193,28 @@ def flatmaps(sid, datasets,
             if p not in fmap.properties}
         for ((inp,outp),ds) in datasets.items():
             labelsets = {'visual_area': slice(0,3)}
-            mdl = benson2024_unet(
+            mdl = unet(
                 inp, outp, 'model',
                 model_cache_path=model_cache_path)
             labels = ds.predlabels(targ, mdl, view=view, labelsets=labelsets)
             for (k,lbl) in labels.items():
                 ps[f"{inp}_{k}"] = lbl
         # We mark the visual_area property of the NYU dataset as gold-standard.
-        ps['gold_visual_area'] = hem.prop('visual_area')
+        gold = hem.prop('visual_area')[fmap.labels]
+        # (But we want hV4 masked out.)
+        gold[gold == 4] = 0
+        ps['gold_visual_area'] = gold
         fmaps.append(fmap.with_prop(ps))
     return tuple(fmaps)
-def all_flatmaps(datasets, sids=None,
+def all_flatmaps(datasets, sids=Ellipsis,
                  add_prior=True,
-                 dataset_cache_path=None,
-                 model_cache_path=None):
+                 dataset_cache_path=Ellipsis,
+                 model_cache_path=Ellipsis):
     """Generates a lazy-map of all evaluation flatmaps for all HCP subjects.
     
     See also `flatmaps`."""
     import pimms
-    if sids is None:
+    if sids is Ellipsis:
         from ..config import nyu_sids as sids
     return pimms.lmap(
         {sid: ny.util.curry(

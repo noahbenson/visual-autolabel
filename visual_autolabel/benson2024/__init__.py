@@ -6,17 +6,14 @@
 """
 
 from . import config
-
-from ._core import (
-    score_dataframe,
-    benson2024_unet,
-    benson2024_data)
-
 from . import hcp
 from . import nyu
 
-from . import analysis
-
+from .analysis import (
+    scores,
+    all_scores,
+    unet,
+    all_unets)
 
 # We import the UNet used as a convenience.
 from ..image import UNet

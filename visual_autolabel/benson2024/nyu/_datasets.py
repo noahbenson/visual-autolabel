@@ -237,7 +237,9 @@ class NYUDataset(ImageCacheDataset):
                  flatmap_cache=True):
         # If the auto-cache_path is requested, use it.
         if cache_path is Ellipsis:
-            from ...config import dataset_cache_path
+            from ..config import dataset_cache_path
+            if dataset_cache_path is not None:
+                dataset_cache_path = os.path.join(dataset_cache_path, 'NYU')
             cache_path = os.path.join(dataset_cache_path, 'NYU')
         # Make an HCPLines Occipital Image Cache object first.
         imcache = NYUImageCache(
@@ -257,7 +259,7 @@ class NYUDataset(ImageCacheDataset):
         # Figure out the targets dicts of rater and subject.
         sids = NYUImageCache.subject_list
         if sids is Ellipsis:
-            from ...config import nyu_sids
+            from ..config import nyu_sids
             sids = nyu_sids
         # Make the targets dicts
         targets = tuple({'subject': s} for s in sids)
@@ -333,10 +335,10 @@ def make_datasets(in_features, out_features,
         `{f: make_datasets(f) for f in ['anat', 'func', 'both']}`.
     """
     if sids is Ellipsis:
-        from ...config import nyu_sids
+        from ..config import nyu_sids
         sids = nyu_sids
     if partition is Ellipsis:
-        from ....config import default_partition
+        from ...config import default_partition
         partition = default_partition
     (trn_sids, val_sids) = make_partition(sids, how=partition)
     def curry_fn(sids):

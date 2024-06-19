@@ -67,12 +67,14 @@ class HCPImageCache(BilateralFlatmapImageCache):
                  flatmap_cache=True):
         # If we are given an Ellipsis for the cache_path, we import from config.
         if cache_path is Ellipsis:
-            from ...config import dataset_cache_path
-            cache_path = os.path.join(dataset_cache_path, 'HCP')
+            from ..config import dataset_cache_path
+            if dataset_cache_path is not None:
+                dataset_cache_path = os.path.join(dataset_cache_path, 'HCP')
+            cache_path = dataset_cache_path
         BilateralFlatmapImageCache.__init__(
             self, 
             hemis=hemis,
-            image_size=image_size
+            image_size=image_size,
             cache_path=cache_path,
             overwrite=overwrite,
             mkdirs=mkdirs,
@@ -244,7 +246,7 @@ class HCPDataset(ImageCacheDataset):
             flatmap_cache=flatmap_cache)
         # Figure out the targets dicts of rater and subject.
         if sids is Ellipsis:
-            from ...config import hcp_sids
+            from ..config import hcp_sids
             sids = hcp_sids
         # Make the target list.
         targets = [{'rater':r, 'subject':s} for r in raters for s in sids]
@@ -325,12 +327,14 @@ def make_datasets(in_features, out_features,
     # from the benson2024.config namespace.
     if cache_path is Ellipsis:
         from ..config import dataset_cache_path
+        if dataset_cache_path is not None:
+            dataset_cache_path = os.path.join(dataset_cache_path, 'HCP')
         cache_path = os.path.join(dataset_cache_path, 'HCP')
     if sids is Ellipsis:
         from ..config import hcp_sids
         sids = hcp_sids
     if partition is Ellipsis:
-        from ....config import default_partition
+        from ...config import default_partition
         partition = default_partition
     (trn_sids, val_sids) = make_partition(sids, how=partition)
     def curry_fn(sids):
@@ -341,7 +345,6 @@ def make_datasets(in_features, out_features,
             features=features,
             cache_path=cache_path,
             image_size=image_size,
-            exclusions=exclusions,
             transform=transform,
             input_transform=input_transform,
             output_transform=output_transform,
@@ -355,7 +358,7 @@ def make_datasets(in_features, out_features,
             dtype=dtype,
             memcache=memcache,
             normalization=normalization,
-            flatmap_cache=flatmap_cache))
+            flatmap_cache=flatmap_cache)
     return pimms.lmap({'trn': curry_fn(trn_sids),
                        'val': curry_fn(val_sids)})
 def make_dataloaders(in_features, out_features,
@@ -441,7 +444,6 @@ def make_dataloaders(in_features, out_features,
             partition=partition,
             cache_path=cache_path,
             image_size=image_size,
-            exclusions=exclusions,
             transform=transform,
             input_transform=input_transform,
             output_transform=output_transform,
