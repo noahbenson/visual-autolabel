@@ -25,6 +25,7 @@ from ...image import UNet
 
 #-------------------------------------------------------------------------------
 # Utility Functions
+
 def analdir(analysis_path, *args, mkdirs=False, mkdir_mode=0o775):
     if analysis_path is None:
         return None
@@ -54,6 +55,7 @@ def analfile(analysis_path, *args, mkdirs=False, mkdir_mode=0o775):
     if mkdirs and not parent.is_dir():
         parent.mkdir(mode=mkdir_mode, parents=True, exist_ok=True)
     return analysis_path
+
 
 #-------------------------------------------------------------------------------
 # Score Functions
@@ -195,7 +197,6 @@ calc_scores.nyu_default_pair_tags = {
     ('gold',  'func'):  'func',
     ('gold',  'fnyu'):  'fnyu',
     ('gold',  'prior'): 'prior'}
-
 def scores(dataset, sid,
            overwrite=False,
            analysis_path=Ellipsis,
