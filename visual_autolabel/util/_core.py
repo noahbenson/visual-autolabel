@@ -13,9 +13,7 @@ import numpy as np
 import torch
 
 from ..config import (
-    default_partition,
-    sids
-)
+    default_partition)
 
 
 #===============================================================================
@@ -156,6 +154,8 @@ def partition(sids, how=default_partition):
         A tuple `(trn_sids, val_sids)` whose members are numpy arrays of the
         subject-IDs in the training and validation sets, respectively.
     """
+    if isinstance(sids, str):
+        sids = lookup_sids(sids)
     sids = np.asarray(sids)
     n = len(sids)
     if how is None: how = default_partition
@@ -784,20 +784,20 @@ def forkrun(f, *args, **kwargs):
     if pid == 0:
         inp.close()
         try:
-            r = l(*args, **kwargs)
+            r = f(*args, **kwargs)
             outp.write(pickle.dumps(r))
             outp.flush()
             outp.close()
             os._exit(0)
-        except Exception:
+        except Exception as e:
             os._exit(1)
     else:
         outp.close()
         try:
             s = inp.read()
+            (pid_, status) = os.waitpid(pid, 0)
             if not s:
                 raise RuntimeError(f"nothing read from child process")
-            (pid_, status) = os.waitpid(pid, 0)
             rv = os.waitstatus_to_exitcode(status)
             if rv != 0:
                 raise RuntimeError(f"child process returned value {rv}")
