@@ -96,7 +96,7 @@ def dataset(inputs, outputs='area',
         from ..config import dataset_cache_path
         if dataset_cache_path is not None:
             dataset_cache_path = os.path.join(dataset_cache_path, 'NYU')
-        cache_path = os.path.join(dataset_cache_path, 'NYU')
+        cache_path = dataset_cache_path
     if isinstance(inputs, str):
         inputs = input_properties.get(inputs, (inputs,))
     if isinstance(outputs, str):
