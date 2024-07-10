@@ -12,6 +12,7 @@
 import os, json
 
 import numpy as np
+import scipy as sp
 import neuropythy as ny
 
 from ...image import (
@@ -88,10 +89,107 @@ class DWIFeature(FlatmapFeature):
 dwi_features = {
     'dwi_OR': DWIFeature('OR'),
     'dwi_VOF': DWIFeature('VOF')}
+# Next, PCA-based features.
+class PCAFeature(FlatmapFeature):
+    """Flatmap features loaded from PCAs of BOLD timecourses.
+    """
+    # The method to interpret that filename pattern.
+    def get_filenames(self, target, view):
+        data = dict(target, **view)
+        data['H'] = data['hemisphere'][0].upper()
+        flpatts = self.bold_path_patterns
+        res = []
+        for flpatt in flpatts:
+            if isinstance(flpatt, str):
+                res.append(flpatt.format(**data))
+            else:
+                flparts = [s.format(**data) for s in flpatt]
+                res.append(os.path.join(*flparts))
+        return res
+    # FlatmapFeature overloads -------------------------------------------------
+    __slots__ = (
+        'bold_name', 'bold_path_patterns',
+        'pca_index', 'pca_filename', 'npcs')
+    def __init__(self, name, paths, k, pca_filename, npcs=12):
+        super().__init__(f'pca_{name}')
+        self.bold_name = name
+        if isinstance(paths, str):
+            paths = (paths,)
+        self.bold_path_patterns = paths
+        self.pca_index = k
+        self.pca_filename = pca_filename
+        self.npcs = npcs
+    def get_property(self, fmap, target, view={}):
+        return self.get_properties(fmap, target, view)[self.pca_index]
+    def get_properties(self, fmap, target, view={}):
+        # If we have already caclulated these, we just load them:
+        pca_filename = self.pca_filename
+        pca_filename = pca_filename.format(npcs=self.npcs, **target, **view)
+        if os.path.isfile(pca_filename):
+            with open(pca_filename, 'rb') as f:
+                return np.load(f)
+        # Here are the filenames:
+        filenames = self.get_filenames(target, view)
+        # Start by loading them in.
+        sid = target['subject']
+        sub = ny.data['hcp_lines'].subjects[sid]
+        props = []
+        for filename in filenames:
+            try:
+                arr = np.array(
+                    [arr[fmap.labels] for arr in sub.load(filename).agg_data()],
+                    dtype=np.float32)
+                props.append(arr)
+            except ValueError:
+                from warnings import warn
+                # If we fail to load the file, we instead give it blank data.
+                warn(f"failed to load one of the '{self.property}' files:"
+                     f" {filename}")
+        if len(props) == 0:
+            from warnings import warn
+            warn(f"failed to load any of the '{self.property}' files for"
+                 f" target: {target}")
+            return np.zeros((self.npcs, fmap.vertex_count), dtype=np.float32)
+        # We merge these together (we will calculate correlation matrices from
+        # them together).
+        bold = np.vstack(props)
+        # Find the nonzero entries:
+        nz = (np.abs(np.std(bold, axis=0)) > 1e-8)
+        # Calculate the correlation matrix (the slow part):
+        r = np.corrcoef(bold[:,nz].T, dtype=np.float32)
+        # Find the first n PCs:
+        (vals, vecs) = sp.sparse.linalg.eigsh(r, self.npcs)
+        pcs = np.zeros((self.npcs, bold.shape[1]), dtype=np.float32)
+        pcs[:,nz] = vecs.T
+        # Save this out!
+        try:
+            with open(pca_filename, "wb") as f:
+                np.save(f, pcs)
+        except Exception:
+            from warnings import warn
+            warn(f"failed to save PCA cache file: {pca_filename}")
+        return pcs
+mov1_paths = (
+    'MNINonLinear/Results/tfMRI_MOVIE1_7T_AP/tfMRI_MOVIE1_7T_AP.{H}.native.func.gii',
+    'MNINonLinear/Results/tfMRI_MOVIE2_7T_PA/tfMRI_MOVIE2_7T_PA.{H}.native.func.gii')
+mov2_paths = (
+    'MNINonLinear/Results/tfMRI_MOVIE3_7T_PA/tfMRI_MOVIE3_7T_PA.{H}.native.func.gii',
+    'MNINonLinear/Results/tfMRI_MOVIE4_7T_AP/tfMRI_MOVIE4_7T_AP.{H}.native.func.gii')
+mov1_cache_path = (
+    '/data/visual-autolabel/datasets/HCP/_pca_cache/{subject}_{hemisphere}_mov1.npy')
+mov2_cache_path = (
+    '/data/visual-autolabel/datasets/HCP/_pca_cache/{subject}_{hemisphere}_mov2.npy')
+bold_features = {
+    f'mov{m+1}pc{k+1}': PCAFeature(f'mov{m+1}pc{k+1}', mp, k, mcp)
+    for (m,mp,mcp) in zip([0,1],
+                          [mov1_paths,mov2_paths],
+                          [mov1_cache_path,mov2_cache_path])
+    for k in range(12)}
 features = dict(
     dwi_features,
     # Add in the 'zeros' feature, which represents all zeros for a null input.
     zeros=NullFeature('zeros'))
+features.update(bold_features)
 
 # Training Feature Sets.........................................................
 # The base feature-sets we are predicting:
@@ -102,6 +200,11 @@ from .._core import (
     fnonly_properties)
 t2only_properties = ('myelin',)
 dwonly_properties = ('dwi_OR', 'dwi_VOF')
+bold_properties = (
+    'mov1pc1', 'mov1pc2', 'mov1pc3', 'mov1pc4',  'mov1pc5',  'mov1pc6',
+    'mov1pc7', 'mov1pc8', 'mov1pc9', 'mov1pc10', 'mov1pc11', 'mov1pc12',
+    'mov2pc1', 'mov2pc2', 'mov2pc3', 'mov2pc4',  'mov2pc5',  'mov2pc6',
+    'mov2pc7', 'mov2pc8', 'mov2pc9', 'mov2pc10', 'mov2pc11', 'mov2pc12')
 full_properties = (t1only_properties + t2only_properties +
                    dwonly_properties + fnonly_properties)
 # The feature-sets by name.
@@ -114,7 +217,17 @@ input_properties = {
     'not2': t1only_properties + fnonly_properties + dwonly_properties,
     'nofn': t1only_properties + t2only_properties + dwonly_properties,
     'nodw': t1only_properties + t2only_properties + fnonly_properties,
-    'full': full_properties
+    'full': full_properties,
+    'mov1': (
+        'curvature', 'convexity', 'thickness', 'surface_area',
+        'mov1pc1', 'mov1pc2', 'mov1pc3', 'mov1pc4',  'mov1pc5',  'mov1pc6',
+        'mov1pc7'),
+    'mov2': (
+        'mov2pc1', 'mov2pc2', 'mov2pc3', 'mov2pc4',  'mov2pc5',  'mov2pc6',
+        'mov2pc7', 'mov2pc8', 'mov2pc9', 'mov2pc10', 'mov2pc11', 'mov2pc12'),
+    'movs': (
+        'mov1pc1', 'mov1pc2', 'mov1pc3', 'mov1pc4',  'mov1pc5',  'mov1pc6',
+        'mov2pc1', 'mov2pc2', 'mov2pc3', 'mov2pc4',  'mov2pc5',  'mov2pc6')
 }
 output_properties = {
     'area': vaonly_properties,
