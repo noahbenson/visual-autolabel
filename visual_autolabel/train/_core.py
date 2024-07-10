@@ -631,7 +631,6 @@ def train_until(in_features, out_features, training_plan,
         out_features = tuple(out_features)
     else:
         raise ValueError("out_features must be a list, set, str, or tuple")
-    kwargs['in_features'] = in_features
     kwargs['out_features'] = out_features
     partition = kwargs.get('partition', Ellipsis)
     if partition is Ellipsis:
@@ -699,7 +698,10 @@ def train_until(in_features, out_features, training_plan,
                     logger(dnm + ' ' + '-'*(85 - len(dnm) - 1))
                     logger('')
                 t0 = time.time()
-                (model, loss, dice) = run_modelplan(training_plan, **kwargs)
+                (model, loss, dice) = run_modelplan(
+                    training_plan,
+                    in_features=infeats,
+                    **kwargs)
                 t1 = time.time()
                 row = dict(
                     input=dnm, loss=loss, dice=dice, training_time=(t1-t0))

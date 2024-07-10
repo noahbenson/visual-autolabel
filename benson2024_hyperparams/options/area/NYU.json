@@ -3,7 +3,7 @@
  "prediction": "area",
  "base_model": "resnet18",
  "batch_size": 2,
- "data_cache_path": "/data/visual-autolabel/data_NYU",
+ "data_cache_path": "/data/visual-autolabel/datasets",
  "model_cache_path": "/data/visual-autolabel/models",
  "partition": [
      ["sub-wlsubj001", "sub-wlsubj004", "sub-wlsubj006", "sub-wlsubj014",

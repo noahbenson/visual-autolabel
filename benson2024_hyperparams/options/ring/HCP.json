@@ -1,6 +1,6 @@
 {"until": 10,
  "prediction": "ring",
  "base_model": "resnet18",
- "data_cache_path": "/data/visual-autolabel/data",
+ "data_cache_path": "/data/visual-autolabel/datasets",
  "model_cache_path": "/data/visual-autolabel/models",
  "partition": "default"}
