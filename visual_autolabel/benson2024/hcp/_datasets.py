@@ -184,6 +184,7 @@ class HCPImageCache(BilateralFlatmapImageCache):
         hem = hem.with_prop(midgray_x=x, midgray_y=y, midgray_z=z)
         if rater is not None and rater != 'mean':
             # Get the appropriate data from the dataset.
+            print(rater, sid, h)
             dat = ny.data['hcp_lines'].subject_labels[rater][sid][h]
             hem = hem.with_prop(
                 visual_area=dat['visual_area'],
@@ -248,17 +249,48 @@ class HCPDataset(ImageCacheDataset):
         if sids is Ellipsis:
             from ..config import hcp_sids
             sids = hcp_sids
+        # Figure out the exclusions next.
+        dset = ny.data['hcp_lines']
+        exclusions = dset.exclusions
+        # Step through these and process from (rater, sid, h) into (rater, sid)
+        # when necessary.
+        tmp = exclusions
+        exclusions = set([])
+        for excl in tmp:
+            if isinstance(excl, tuple) and len(excl) == 1:
+                excl = excl[0]
+            if isinstance(excl, str):
+                if excl in raters:
+                    for s in subjects:
+                        exclusions.add((excl, s))
+            elif isinstance(excl, int):
+                if excl in subjects:
+                    for r in raters:
+                        exclusions.add((r, excl))
+            elif len(excl) == 3:
+                (r,s,h) = excl
+                exclusions.add((r,s))
+            elif len(excl) == 2:
+                exclusions.add(excl)
+            else:
+                raise ValueError(f"invalid exclusion: {excl}")
         # Make the target list.
-        targets = [{'rater':r, 'subject':s} for r in raters for s in sids]
-        targets = tuple(targets)
+        targets = tuple(
+            [{'rater':r, 'subject':s}
+             for r in raters for s in sids
+             if (r,s) not in exclusions])
         # If we have been given an alias string for the inputs or outputs,
         # translate those now based on the table in _core.py.
         if isinstance(inputs, str):
             from ._core import input_properties as ps
             inputs = ps.get(inputs, (inputs,))
+        elif isinstance(inputs, dict) and len(inputs) == 1:
+            inputs = next(iter(inputs.values()))
         if isinstance(outputs, str):
             from ._core import output_properties as ps
             outputs = ps.get(outputs, (outputs,))
+        elif isinstance(outputs, dict) and len(outputs) == 1:
+            outputs = next(iter(outputs.values()))
         # Now go ahead and initialize our superclass using it.
         super().__init__(
             imcache, inputs, outputs, targets,
@@ -329,7 +361,7 @@ def make_datasets(in_features, out_features,
         from ..config import dataset_cache_path
         if dataset_cache_path is not None:
             dataset_cache_path = os.path.join(dataset_cache_path, 'HCP')
-        cache_path = os.path.join(dataset_cache_path, 'HCP')
+        cache_path = dataset_cache_path
     if sids is Ellipsis:
         from ..config import hcp_sids
         sids = hcp_sids
