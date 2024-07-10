@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from numbers import Number
 
 import torch
+import numpy as np
 import neuropythy as ny
 
 from ..util import (
@@ -291,6 +292,7 @@ def _make_dataloaders_and_model(
             dl_trn.dataset.segment_count,
             **model_opts)
     # See if we need to initialize the weights.
+    init_weights = kwargs.get('init_weights', None)
     if init_weights is not None:
         from pathlib import Path
         if isinstance(init_weights, (str, Path)):
@@ -480,7 +482,8 @@ def build_model(
         device=device,
         hlines=hlines)
 
-def run_modelplan(modelplan, dataloaders, model, **kwargs):
+def run_modelplan(modelplan, dataloaders, model,
+                  in_features=None, out_features=None, **kwargs):
     """Executes a model-plan, which builds and trains a model.
 
     The `run_modelplan` is intended as a way to build and train a model using a
@@ -500,7 +503,7 @@ def run_modelplan(modelplan, dataloaders, model, **kwargs):
     returns the current best model.
     """
     # First, create the dataloaders and the model.
-    make_opts = filter_options(_make_dataloaders_and_model, **kwargs)
+    make_opts = dict(kwargs)
     # We want to eliminate these options--in the future we will just pass the
     # model and dataloaders.
     for k in make_opts.keys():
@@ -509,7 +512,10 @@ def run_modelplan(modelplan, dataloaders, model, **kwargs):
     make_opts = dict(
         {'dataloaders':dataloaders, 'model':model},
         **make_opts)
-    (dataloaders, model) = _make_dataloaders_and_model(**make_opts)
+    (dataloaders, model) = _make_dataloaders_and_model(
+        in_features=in_features,
+        out_features=out_features,
+        **make_opts)
     # Save the original arguments (with dataloader/model arguments fixed).
     kwargs = dict(
         {'dataloaders':dataloaders, 'model':model},
@@ -518,7 +524,7 @@ def run_modelplan(modelplan, dataloaders, model, **kwargs):
     mkdirs = kwargs.get('mkdirs', True)
     mkdir_mode = kwargs.get('mkdir_mode', 0o775)
     # We also use the model cache path and logger if they are provided.
-    model_cache_path = kwargs0.get('model_cache_path', None)
+    model_cache_path = kwargs.get('model_cache_path', None)
     # Prepare for the rounds of training.
     best_dice = 1e10
     best_loss = 1e10
@@ -533,7 +539,7 @@ def run_modelplan(modelplan, dataloaders, model, **kwargs):
         # Note that we do not support regeneration of dataloaders or the model
         # when their parameters are passed in as step options; provide a warning
         # in such a case.
-        step_make_opts = filter_options(_make_dataloaders_and_model, step_opts)
+        step_make_opts = filter_options(_make_dataloaders_and_model, **step_opts)
         if len(step_make_opts) > 0:
             from warnings import warn
             warn(
@@ -548,7 +554,7 @@ def run_modelplan(modelplan, dataloaders, model, **kwargs):
             cpath = os.path.join(model_cache_path, f'round{ii+1:02d}')
             if mkdirs and not os.path.isdir(cpath):
                 os.makedirs(cpath, mode=mkdir_mode, exist_ok=True)
-            kw['model_cache_path'] = cpath
+            opts['model_cache_path'] = cpath
         # Run the build-model function.
         (model, loss, dice) = build_model(**opts)
         if dice < best_dice:
@@ -599,6 +605,7 @@ def train_until(in_features, out_features, training_plan,
         a model.
     """
     logger = kwargs.get('logger', print)
+    model_cache_path = kwargs.get('model_cache_path', None)
     if model_key is not None:
         if model_cache_path is not None:
             model_cache_path = os.path.join(model_cache_path, model_key)
@@ -624,6 +631,7 @@ def train_until(in_features, out_features, training_plan,
         out_features = tuple(out_features)
     else:
         raise ValueError("out_features must be a list, set, str, or tuple")
+    kwargs['out_features'] = out_features
     partition = kwargs.get('partition', Ellipsis)
     if partition is Ellipsis:
         from ..config import default_partition
@@ -640,13 +648,21 @@ def train_until(in_features, out_features, training_plan,
         with open(os.path.join(model_cache_path, "plan.json"), "wt") as fl:
             json.dump(training_plan, fl)
         # And the options dictionary.
+        base_model = kwargs.get('base_model', None)
+        pretrained = kwargs.get('pretrained', None)
+        features = kwargs.get('features', None)
         with open(os.path.join(model_cache_path, "options.json"), "wt") as fl:
+            part = None
+            if partition is not None:
+                part = (np.asarray(partition[0]).tolist(),
+                        np.asarray(partition[1]).tolist())
             opts = dict(
                 until=until, model_key=model_key, base_model=base_model,
-                partition=partition, lr=lr, batch_size=batch_size,
+                partition=part, lr=lr, batch_size=batch_size,
                 pretrained=pretrained, num_epochs=num_epochs,
                 feature_names=(list(features.keys()) if features else None))
             json.dump(opts, fl)
+    dataset_cache_path = kwargs.get('dataset_cache_path', None)
     if dataset_cache_path is not None:
         if not os.path.isdir(dataset_cache_path) and mkdirs:
             os.makedirs(dataset_cache_path, mkdir_mode, exist_ok=True)
@@ -682,8 +698,10 @@ def train_until(in_features, out_features, training_plan,
                     logger(dnm + ' ' + '-'*(85 - len(dnm) - 1))
                     logger('')
                 t0 = time.time()
-                runopts = filter_options(run_modelplan, **kwargs)
-                (model, loss, dice) = run_modelplan(training_plan, **runopts)
+                (model, loss, dice) = run_modelplan(
+                    training_plan,
+                    in_features=infeats,
+                    **kwargs)
                 t1 = time.time()
                 row = dict(
                     input=dnm, loss=loss, dice=dice, training_time=(t1-t0))
