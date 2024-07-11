@@ -220,8 +220,15 @@ def train_model(model, optimizer, scheduler, dataloaders,
                 # Calculate the forward model.
                 with torch.set_grad_enabled(phase == 'trn'):
                     outputs = model(inputs.float())
+                    if logits is None:
+                        try:
+                            ll = model.logits
+                        except Exception as e:
+                            ll = None
+                    else:
+                        ll = logits
                     loss = calc_loss(outputs, labels,
-                                     logits=logits,
+                                     logits=ll,
                                      bce_weight=bce_weight,
                                      smoothing=smoothing,
                                      reweight=reweight,
@@ -268,7 +275,7 @@ def _make_dataloaders_and_model(
         # The rest is just options that we will filter to the dataloader and
         # model functions--if they are functions and not preconstructed models
         # or dataloaders.
-        **kwargs):
+        kwargs):
     # First, make the dataloaders.
     if not is_partition(dataloaders):
         # Dataloaders must be a function if it's not a partition.
@@ -277,7 +284,12 @@ def _make_dataloaders_and_model(
                 'dataloaders must be a partition of DataLoader objects or a'
                 ' callable that constructs such partitions')
         dataloader_opts = filter_options(dataloaders, **kwargs)
+        if 'dataset_cache_path' in kwargs:
+            dataloader_opts['cache_path'] = kwargs['dataset_cache_path']
         dataloaders = dataloaders(**dataloader_opts)
+        for k in dataloader_opts.keys():
+            if k in kwargs:
+                del kwargs[k]
     dl_trn = trndata(dataloaders)
     dl_val = valdata(dataloaders)
     # Next, we make the starting model.
@@ -291,6 +303,9 @@ def _make_dataloaders_and_model(
             dl_trn.dataset.feature_count,
             dl_trn.dataset.segment_count,
             **model_opts)
+        for k in model_opts.keys():
+            if k in kwargs:
+                del kwargs[k]
     # See if we need to initialize the weights.
     init_weights = kwargs.get('init_weights', None)
     if init_weights is not None:
@@ -301,6 +316,8 @@ def _make_dataloaders_and_model(
             # otherwise, assume the init_weights are the weights dictionary
             weights = init_weights
         start_model.load_state_dict(weights)
+    if 'init_weights' in kwargs:
+        del kwargs['init_weights']
     return (dataloaders, start_model)
 def build_model(
         # Required options for building the initial model and the dataloaders.
@@ -447,7 +464,7 @@ def build_model(
     # First, create the dataloaders and starting model.
     (dataloaders, start_model) = _make_dataloaders_and_model(
         dataloaders, model,
-        **allopts)
+        allopts)
     # Next, create the optimizer.
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, start_model.parameters()),
@@ -503,19 +520,13 @@ def run_modelplan(modelplan, dataloaders, model,
     returns the current best model.
     """
     # First, create the dataloaders and the model.
-    make_opts = dict(kwargs)
-    # We want to eliminate these options--in the future we will just pass the
-    # model and dataloaders.
-    for k in make_opts.keys():
-        del kwargs[k]
-    # Now make the dataloaders:
-    make_opts = dict(
-        {'dataloaders':dataloaders, 'model':model},
-        **make_opts)
+    kwargs0 = dict(kwargs)
+    kwargs['in_features'] = in_features
+    kwargs['out_features'] = out_features
     (dataloaders, model) = _make_dataloaders_and_model(
-        in_features=in_features,
-        out_features=out_features,
-        **make_opts)
+        dataloaders,
+        model,
+        kwargs)
     # Save the original arguments (with dataloader/model arguments fixed).
     kwargs = dict(
         {'dataloaders':dataloaders, 'model':model},
@@ -537,15 +548,7 @@ def run_modelplan(modelplan, dataloaders, model,
         opts.update(step_opts)
         logger = opts.get('logger', print)
         # Note that we do not support regeneration of dataloaders or the model
-        # when their parameters are passed in as step options; provide a warning
-        # in such a case.
-        step_make_opts = filter_options(_make_dataloaders_and_model, **step_opts)
-        if len(step_make_opts) > 0:
-            from warnings import warn
-            warn(
-                f"step options contain dataloader/model options, which are"
-                f" ignored after initialization:"
-                f" {sorted(step_make_opts.keys())}")
+        # when their parameters are passed in as step options.
         # Print a blank line between rounds.
         if ii > 0 and logger is not None:
             logger("")
@@ -605,12 +608,10 @@ def train_until(in_features, out_features, training_plan,
         a model.
     """
     logger = kwargs.get('logger', print)
-    model_cache_path = kwargs.get('model_cache_path', None)
+    model_cache_path = kwargs.pop('model_cache_path', None)
     if model_key is not None:
         if model_cache_path is not None:
             model_cache_path = os.path.join(model_cache_path, model_key)
-            if mkdirs and not os.path.isdir(model_cache_path):
-                os.makedirs(model_cache_path, mkdir_mode)
     if isinstance(in_features, str):
         in_features = (in_features,)
     if isinstance(in_features, (tuple, list, set)):
@@ -632,15 +633,17 @@ def train_until(in_features, out_features, training_plan,
     else:
         raise ValueError("out_features must be a list, set, str, or tuple")
     kwargs['out_features'] = out_features
-    partition = kwargs.get('partition', Ellipsis)
+    partition = kwargs.pop('partition', Ellipsis)
     if partition is Ellipsis:
         from ..config import default_partition
         partition = default_partition
     # Options we need for below.
-    lr = kwargs.get('lr', 0.004)
-    gamma = kwargs.get('gamma', 0.9)
-    batch_size = kwargs.get('batch_size')
-    num_epochs = kwargs.get('num_epochs', 10)
+    extra_opts = (
+        'lr', 'gamma', 'batch_size', 'num_epochs', 'pretrained', 'base_model')
+    extra_opts = {
+        k: kwargs[k]
+        for k in extra_opts
+        if k in kwargs}
     if model_cache_path is not None:
         if not os.path.isdir(model_cache_path) and mkdirs:
             os.makedirs(model_cache_path, mkdir_mode)
@@ -648,8 +651,6 @@ def train_until(in_features, out_features, training_plan,
         with open(os.path.join(model_cache_path, "plan.json"), "wt") as fl:
             json.dump(training_plan, fl)
         # And the options dictionary.
-        base_model = kwargs.get('base_model', None)
-        pretrained = kwargs.get('pretrained', None)
         features = kwargs.get('features', None)
         with open(os.path.join(model_cache_path, "options.json"), "wt") as fl:
             part = None
@@ -657,9 +658,10 @@ def train_until(in_features, out_features, training_plan,
                 part = (np.asarray(partition[0]).tolist(),
                         np.asarray(partition[1]).tolist())
             opts = dict(
-                until=until, model_key=model_key, base_model=base_model,
-                partition=part, lr=lr, batch_size=batch_size,
-                pretrained=pretrained, num_epochs=num_epochs,
+                extra_opts,
+                until=until,
+                model_key=model_key,
+                partition=part,
                 feature_names=(list(features.keys()) if features else None))
             json.dump(opts, fl)
     dataset_cache_path = kwargs.get('dataset_cache_path', None)
@@ -701,6 +703,8 @@ def train_until(in_features, out_features, training_plan,
                 (model, loss, dice) = run_modelplan(
                     training_plan,
                     in_features=infeats,
+                    model_cache_path=model_cache_path,
+                    partition=part,
                     **kwargs)
                 t1 = time.time()
                 row = dict(
