@@ -68,7 +68,7 @@ class UNet(torch.nn.Module):
     def __init__(self, feature_count, segment_count,
                  base_model='resnet18',
                  pretrained=False,
-                 logits=False):
+                 logits=True):
         import torch.nn as nn
         # Initialize the super-class.
         super().__init__()
