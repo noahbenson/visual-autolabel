@@ -32,9 +32,9 @@ The grid search examines the following parameters:
 * BCE weight (`bce_weight`), which can be any of the following: $\{0.50,
   0.67, 0.75\}$. The BCE weight hyperparameter sets the relative weight of
   the binary cross entropy loss function relative to the dice loss function
-  during the first epoch. (The overall loss function is $f(\symvec{x}) = w
-  f_{\hbox{BCE}}(\symvec{x}) + (1 - w) f_{\hbox{Dice}}(\symvec{x})$ where
-  $\symvec{x}$ is the vector of parameters to the loss function, $w$ is the BCE
+  during the first epoch. (The overall loss function is $f(\symbf{x}) = w
+  f_{\hbox{BCE}}(\symbf{x}) + (1 - w) f_{\hbox{Dice}}(\symbf{x})$ where
+  $\symbf{x}$ is the vector of parameters to the loss function, $w$ is the BCE
   weight, and $f_{\hbox{BCE}}$ and $f_{\hbox{Dice}}$ are the BCE and Dice loss
   functions, respectively. During epoch 2 and 3, the BCE weight is halved, and
   during epoch 3, the BCE weight is 0.
