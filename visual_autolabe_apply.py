@@ -1,60 +1,26 @@
+# The user will provide a subject ID or a path to a FreeSurfer subject.
+# We will set up an ImageCache object that handles just that subject.
+# The ImageCache will work only with anatomical data (T1) because the PRF
+# models require additional training still. (So the ImageCache and Dataset
+# classes will be a little unusual: they will only have 1 subject, which
+# is provided at runtime.)
+
 class GeneralImageCache(BilateralFlatmapImageCache):
     
     def __init__(self, dataset_path, subject_list, hemis='lr', image_size=Ellipsis, cache_path=None, overwrite=False, mkdirs=True, mkdir_mode=0o775, multiproc=True, timeout=None, dtype='float32', memcache=True, normalization=None, features=None, flatmap_cache=True):
         super().__init__(hemis, image_size, cache_path, overwrite, mkdirs, mkdir_mode, multiproc, timeout, dtype, memcache, normalization, features, flatmap_cache)
         self.dataset_path = ny.util.pseudo_path(dataset_path)
-        self.subject_list = subject_list
-        self.subjects = None
 
 
-    def load_subject(subj_id, path, max_eccen=12.4):
+    def load_subject(subj_id, max_eccen=12.4):
         # Freesurfer data path?
-        subpp = path.subpath(f'derivatives/freesurfer/{subj_id}')
-        sub = ny.freesurfer_subject(subpp)
-        
-        # Load data ? 
-        prfpp = path.subpath(f'derivatives/prfanalyze-vista/{subj_id}/ses-nyu3t01/')
-        labpp = path.subpath(f'derivatives/ROIs/{subj_id}/')
-        
-        for h in ['lh', 'rh']:
-            hem = sub.hemis[h]
-
-            prfs = dict(
-                prf_polar_angle=ny.load(prfpp.local_path(f'{h}.angle_adj.mgz')),
-                prf_eccentricity=ny.load(prfpp.local_path(f'{h}.eccen.mgz')),
-                prf_variance_explained=ny.load(prfpp.local_path(f'{h}.vexpl.mgz')),
-                prf_radius=ny.load(prfpp.local_path(f'{h}.sigma.mgz')),
-                prf_x=ny.load(prfpp.local_path(f'{h}.x.mgz')),
-                prf_y=ny.load(prfpp.local_path(f'{h}.y.mgz')),
-                visual_area=ny.load(labpp.local_path(f'{h}.ROIs_V1-4.mgz')))
-            prfs['prf_scaled_eccentricity'] = prfs['prf_eccentricity'] / max_eccen * 8
-            prfs['prf_scaled_x'] = prfs['prf_eccentricity'] / max_eccen * 8
-            prfs['prf_scaled_y'] = prfs['prf_eccentricity'] / max_eccen * 8
-            hem = hem.with_prop(prfs)
-            sub = sub.with_hemi({h: hem})
-        return sub
-
-    
-    self.subjects = pimms.lazy_map({s: ny.util.curry(self.load_subject, s, self.dataset_path) for s in self.subject_list})
-
+        return ny.freesurfer_subject(subj_id)
     @classmethod
     def builtin_features(cls):
         fs = {
-            'prf_polar_angle': FlatmapFeature('prf_polar_angle', 'nearest'),
-            'prf_eccentricity': FlatmapFeature('prf_eccentricity', 'linear'),
-            'prf_cod': FlatmapFeature('prf_variance_explained', 'linear'),
-            'prf_sigma': FlatmapFeature('prf_radius', 'linear'),
-            'prf_x': FlatmapFeature('prf_x', 'linear'),
-            'prf_y': FlatmapFeature('prf_y', 'linear'),
-            'prf_scaled_eccentricity': FlatmapFeature('prf_scaled_eccentricity', 'linear'),
-            'prf_scaled_x': FlatmapFeature('prf_scaled_x', 'linear'),
-            'prf_scaled_y': FlatmapFeature('prf_scaled_y', 'linear'),
             'x': FlatmapFeature('midgray_x', 'linear'),
             'y': FlatmapFeature('midgray_y', 'linear'),
             'z': FlatmapFeature('midgray_z', 'linear'),
-            'V1': LabelFeature('visual_area:1', 'nearest'),
-            'V2': LabelFeature('visual_area:2', 'nearest'),
-            'V3': LabelFeature('visual_area:3', 'nearest')
         }
         return dict(BilateralFlatmapImageCache.builtin_features(), **fs)
     def unpack_target(cls, target):
