@@ -1,60 +1,69 @@
-# Visual Autolabel Grid Search
+# Visual Autolabel: Hyperparameter Grid Search
 
-This file contains notes on the grid-search for the Visual Autolabel project.
+This directory contains data, code, and notes on the hyperparameter grid-search
+for the Visual Autolabel project. Note that the grid-search was executed on
+Azure using a Docker image that has been saved to the filename
+`gridsearch.tar.gz` in a Zenodo deposition with DOI
+[10.5281/zenodo.14502583](https://doi.org/10.5281/zenodo.14502583).  This
+repository no longer maintains the code in a state that is compatible with the
+grid-search performed at that time; though the changes to the code that have
+occurred since the grid search was executed are largely cosmetic and do not
+contain substantive changes to the CNN model, to way that the model is trained,
+or the interpretation of the dataset.  However, the docker image preserves the
+code and scripts as well as the library installations and system configuration
+at the time that the grid-search was run.
 
-## What parameters are we using in the grid search?
-
-Possibilities for parameters:
-* The base model (`base_model`: `resnet18` or `resnet34`): 2 settings
-* Whether the resnet is pretrained (`pretrained`): 2 settings
-* The learning rate (`lr`; we have been using `0.00125-0.00375`)  
-  (Bogeng is doing some reading on what is typical for these parameters).  
-  5 settings: 1/4, 1/2, 1, 2, 4 times the rate we have been using.
-* The learning rate decay (`gamma`)  
-  (Bogeng is doing some reading on what is typical for these parameters).  
-  5 settings: 1/4, 1/2, 1, 2, 4 times what we have been using.
-* BCE weight (`bce_weight`; just enough to figure out whether our values matter
-  or not). This may be hard to find information about in the literature: we are
-  changing the weighting of two different loss functions (in the beginning we
-  prefer the BCE and at the end we prefer the dice loss).  (Bogeng is doing some
-  reading on what is typical for these parameters).  
-  3 settings: 1/2, 1, 2 times what we have been using.
-* Batch size (`batch_size`; I believe we're using 5). Probably it would be
-  sufficient to use values `[2, 3, 4, 5, 6, 7, 8, 9, 10]` or maybe only the odd
-  values.  
-  5 settings: 1, 3, 5, 7, 9.
-* This may be as many as 1500 cells!  
-  (Noah will look into how much this would actually cost on AWS and how many
-  cells are feasible.)
+For more information on Docker images and how to use and interact with them, see
+the documentation hosted by [Docker](https://docs.docker.com/).
 
 
-## What do we train in the grid search?
+## Which hyper-parameters are subjects of the grid search?
 
-* Basically two kinds results we get when we train the CNN:
-  * First, if the training data has functional data (polar angle, eccentricity)
-    in it, we get strong results (similar to humans).
-  * Second, if we give it anything else but functional data (anatomical or
-    diffusion data) it does less well but still better than previous (non-CNN)
-    methods.
-* So we should run the grid search over two different sets of inputs: (1)
-  everything including functional data, and (2) everything except functional
-  data.
+The grid search examines the following parameters:
+* The base model (`base_model`), which can be either `resnet18` or
+  `resnet34`. The two possible values represent ResNet models with different
+  numbers of internal parameters; `resnet18` contains fewer parameters than
+  `resnet34`.
+* The learning rate (`lr`), which can be any of the following: $\{1.67 \cross
+  10^{-3}$, $2.50 \cross 10^{-3}$, $3.75 \cross 10^{-3}$, $5.62 \cross 10^{-3}$,
+  $8.44 \cross 10^{-3}\}$.
+* The learning rate decay (`gamma`), which can be any of the following:
+  $\{0.80$, $0.85$, $0.90$, $0.95$, $1.00\}$.
+* BCE weight (`bce_weight`), which can be any of the following: $\{0.50$,
+  $0.67$, $0.75\}$. The BCE weight hyperparameter sets the relative weight of
+  the binary cross entropy loss function relative to the dice loss function
+  during the first epoch. (The overall loss function is $f(\symvec{x}) = w
+  f_{\hbox{BCE}}(\symvec{x}) + (1 - w) f_{\hbox{Dice}}(\symvec{x})$ where
+  $\symvec{x}$ is the vector of parameters to the loss function, $w$ is the BCE
+  weight, and $f_{\hbox{BCE}}$ and $f_{\hbox{Dice}}$ are the BCE and Dice loss
+  functions, respectively. During epoch 2 and 3, the BCE weight is halved, and
+  during epoch 3, the BCE weight is 0.
+* Batch size (`batch_size`), which can be any of the following: $\{2$, $4$,
+  $6\}$.
 
 
-## How do we run the script / training?
+## What did we train in the grid search?
 
-* We already have a script in the `scripts` directory of this repository that
-  runs training for a model given 2 JSON files (one for the training options and
-  one for the training plan).
-* All of the options can be in the plan instead of in the options if needed.
-* Would be nice to have, at the end of the grid search, 1 directory per "cell"
-  in the grid (a cell being a single set of parameters for training a single
-  model), with one JSON file of the input options in the directory, and the
-  results of the model training. These directories can be in this `grid-search`
-  directory.
-* We can set up a `Dockerfile` that makes a docker image that can run the
-  training for a single model: the docker image should take one of the
-  grid-search cell directories as input and should write the results into that
-  directory.
-* Then, all we'll need to do is run this docker image once for each grid-search
-  cell on AWS.
+We trained 4 CNNs with each set of input parameters; these CNNs differed only in
+the kinds of inputs they required and in the set of labels they produced:
+1. A CNN that uses **input data from T1-weighted images alone** and predicts
+   **visual area boundaries**.
+2. A CNN that uses **all input data** considered in the project and predicts
+   **visual area boundaries**.
+3. A CNN that uses **input data from T1-weighted images alone** and predicts
+   **iso-eccentric regions**.
+4. A CNN that uses **all input data** considered in the project and predicts
+   **iso-eccentric regions**.
+
+
+## Where are the results of the grid search?
+
+The Open Science Framework page ([osf.io/c49dv](https://osf.io/c49dv/)) for this
+project includes directory in [its OSF
+storage](https://osf.io/c49dv/files/osfstorage) named `hyperparameters`. In this
+directory are JSON files detailing the best sets of hyperparameters from the
+grid search for each of the four models above that were used during model
+trainings. This directory also contains a file `grid-search.tar.gz`, which
+contains the log files that document the final validation scores of all of the
+individual cells in the grid search. Due to space constraints the full parameter
+weights and model training data from the grid search were not retained.
