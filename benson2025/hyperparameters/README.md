@@ -25,12 +25,12 @@ The grid search examines the following parameters:
   numbers of internal parameters; `resnet18` contains fewer parameters than
   `resnet34`.
 * The learning rate (`lr`), which can be any of the following: $\{1.67 \times
-  10^{-3}, 2.50 \times 10^{-3}, 3.75 \times 10^{-3}, 5.62 \times 10^{-3}$,
-  $8.44 \times 10^{-3}\}$.
+  10^{-3}, 2.50 \times 10^{-3}, 3.75 \times 10^{-3}, 5.62 \times 10^{-3},
+  8.44 \times 10^{-3}\}$.
 * The learning rate decay (`gamma`), which can be any of the following:
   $\{0.80, 0.85, 0.90, 0.95, 1.00\}$.
-* BCE weight (`bce_weight`), which can be any of the following: $\{0.50$,
-  $0.67, 0.75\}$. The BCE weight hyperparameter sets the relative weight of
+* BCE weight (`bce_weight`), which can be any of the following: $\{0.50,
+  0.67, 0.75\}$. The BCE weight hyperparameter sets the relative weight of
   the binary cross entropy loss function relative to the dice loss function
   during the first epoch. (The overall loss function is $f(\symvec{x}) = w
   f_{\hbox{BCE}}(\symvec{x}) + (1 - w) f_{\hbox{Dice}}(\symvec{x})$ where
@@ -38,8 +38,7 @@ The grid search examines the following parameters:
   weight, and $f_{\hbox{BCE}}$ and $f_{\hbox{Dice}}$ are the BCE and Dice loss
   functions, respectively. During epoch 2 and 3, the BCE weight is halved, and
   during epoch 3, the BCE weight is 0.
-* Batch size (`batch_size`), which can be any of the following: $\{2, 4$,
-  $6\}$.
+* Batch size (`batch_size`), which can be any of the following: $\{2, 4, 6\}$.
 
 
 ## What did we train in the grid search?
