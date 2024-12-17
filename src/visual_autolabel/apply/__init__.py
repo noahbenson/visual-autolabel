@@ -154,7 +154,7 @@ class FreeSurferDataset(ImageCacheDataset):
             'curvature', 'convexity',
             'thickness', 'surface_area')
         if isinstance(outputs, str):
-            from ..benson2024.hcp._core import output_properties as ps
+            from ..benson2025.hcp._core import output_properties as ps
             outputs = ps.get(outputs, (outputs,))
         super().__init__(
             imcache, inputs, outputs, targets,
@@ -189,6 +189,6 @@ def apply_model(subject_path, outputs='both', output_dir=None,
     # the weights for the appropriate models, and apply them using
     # dataset.predlabels() then save them out.
     # We might want to put a function the loads and caches our best models in
-    # the benson2024 subpackage.
+    # the benson2025 subpackage.
     pass
 

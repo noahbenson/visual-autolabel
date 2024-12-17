@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/hcp/train/_core.py
+# visual_autolabel/benson2025/hcp/train/_core.py
 
 
 #===============================================================================
@@ -28,7 +28,7 @@ def main(args, /, exit_on_error=False):
     
     This function allows you to run the main function for the command line:
     ```bash
-    $ python -m visual_autolabel.benson2024.hcp.train \
+    $ python -m visual_autolabel.benson2025.hcp.train \
                 <model_key> <options.json> <plan.json>
     ```
     The function should be called using the following syntax:
@@ -39,7 +39,7 @@ def main(args, /, exit_on_error=False):
     if len(args) != 3:
         if exit_on_error:
             print(
-                "SYNTAX: python -m visual_autolabel.benson2024.hcp.train \\\n"
+                "SYNTAX: python -m visual_autolabel.benson2025.hcp.train \\\n"
                 "                  <model_key> <options.json> <plan.json>",
                 file=sys.stderr)
             sys.exit(1)

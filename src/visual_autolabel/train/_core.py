@@ -737,10 +737,10 @@ def lookup_sids(dataset):
     The only argument, `dataset`, should be either `'hcp'` or `'nyu'`.
     """
     if dataset == 'hcp':
-        from ..benson2024.config import hcp_sids
+        from ..benson2025.config import hcp_sids
         return hcp_sids
     elif dataset == 'nyu':
-        from ..benson2024.config import nyu_sids
+        from ..benson2025.config import nyu_sids
         return nyu_sids
     else:
         raise ValueError("unrecognized dataset: {dataset}")

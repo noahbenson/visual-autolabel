@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/analysis/_core.py
+# visual_autolabel/benson2025/analysis/_core.py
 
 
 #===============================================================================
@@ -227,15 +227,15 @@ def scores(dataset, sid,
     analysis_path : path-like or Ellipsis or None, optional
         The path from which analysis data should be loaded or to which it should
         be saved. If `Ellipsis` is given (the default), then the value in the
-        `benson2024.config.analysis_path` module is used.
+        `benson2025.config.analysis_path` module is used.
     dataset_cache_path : path-like or Ellipsis or None, optional
         The path from which datasets should be cached. If `Ellipsis` is given
         (the default), then the subdirectory named `dataset` of the value
-        `benson2024.config.dataset_cache_path` is used.
+        `benson2025.config.dataset_cache_path` is used.
     model_cache_path : path-like or Ellipsis or None, optional
         The path from which datasets should be cached. If `Ellipsis` is given
         (the default), then the subdirectory named `dataset` of the value
-        `benson2024.config.dataset_cache_path` is used.
+        `benson2025.config.dataset_cache_path` is used.
     mkdirs : boolean, optional
         Whether to make directories that do not exist for saving data files. The
         default is `True`.
@@ -333,15 +333,15 @@ def all_scores(dataset='all',
     analysis_path : path-like or Ellipsis or None, optional
         The path from which analysis data should be loaded or to which it should
         be saved. If `Ellipsis` is given (the default), then the value in the
-        `benson2024.config.analysis_path` module is used.
+        `benson2025.config.analysis_path` module is used.
     dataset_cache_path : path-like or Ellipsis or None, optional
         The path from which datasets should be cached. If `Ellipsis` is given
         (the default), then the subdirectory named `dataset` of the value
-        `benson2024.config.dataset_cache_path` is used.
+        `benson2025.config.dataset_cache_path` is used.
     model_cache_path : path-like or Ellipsis or None, optional
         The path from which datasets should be cached. If `Ellipsis` is given
         (the default), then the subdirectory named `dataset` of the value
-        `benson2024.config.dataset_cache_path` is used.
+        `benson2025.config.dataset_cache_path` is used.
     mkdirs : boolean, optional
         Whether to make directories that do not exist for saving data files. The
         default is `True`.
@@ -400,7 +400,7 @@ def all_scores(dataset='all',
 def _to_model_cache_pseudo_path(model_cache_path):
     # Parse the model_cache_path.
     if model_cache_path is Ellipsis:
-        from visual_autolabel.benson2024.config import model_cache_path
+        from visual_autolabel.benson2025.config import model_cache_path
     elif isinstance(model_cache_path, Path):
         model_cache_path = os.fspath(model_cache_path)
     if not ny.util.is_pseudo_path(model_cache_path):
@@ -453,7 +453,7 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
         equivalent tuple is returned.
     model_cache_path : pathlike, optional
         The path from which to load the models. The default is `None`, which
-        indicates that the `visual_autolabel.benson2024.config.model_cache_path`
+        indicates that the `visual_autolabel.benson2025.config.model_cache_path`
         should be used.
 
     Returns
@@ -494,7 +494,7 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
         else:
             raise TypeError(f'unrecognized type for part option: {type(part)}')
     # Now we can descend into the models' directory and load the part.
-    pp = model_cache_path.subpath(f'benson2024_{inputs}_{outputs}')
+    pp = model_cache_path.subpath(f'benson2025_{inputs}_{outputs}')
     part = part.lower()
     if part == 'all':
         return unet(
@@ -534,7 +534,7 @@ def all_unets(model_cache_path=None):
 
     ```
     {(inputs, outputs): unet(inputs, outputs, 'all')
-     for inputs in visual_autolabel.benson2024.hcp.input_properties.keys()
+     for inputs in visual_autolabel.benson2025.hcp.input_properties.keys()
      for outputs in ['area', 'ring']}
     ```
     """

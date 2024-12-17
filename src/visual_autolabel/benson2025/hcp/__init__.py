@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/hcp/__init__.py
+# visual_autolabel/benson2025/hcp/__init__.py
 
 from ._datasets import (
     HCPImageCache,

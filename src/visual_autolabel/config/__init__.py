@@ -7,7 +7,7 @@
 
 The `visual_autolabel.config` package contains definitions of global variables
 that are used throughout the package. See also the 
-`visual_autolabel.benson2024.config` package for configuration items that were
+`visual_autolabel.benson2025.config` package for configuration items that were
 used in the paper by Benson et al. (2024).
 
 Attributes
