@@ -3,6 +3,11 @@
 # visual_autolabel/benson2025/__init__.py
 
 """Tooling and functions specific to the paper by Benson, Song, et al. (2025).
+
+The `visual_autolabel.benson2025` subpackage contains code that implements the
+CNN training described in the associated paper. It should serve both as the
+repository of the article's code and as an example of how to use the
+`visual_autolabel` library for other parts of cortex and other kinds of data.
 """
 
 from . import config
