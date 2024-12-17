@@ -311,7 +311,7 @@ def _make_dataloaders_and_model(
     if init_weights is not None:
         from pathlib import Path
         if isinstance(init_weights, (str, Path)):
-            weights = torch.load(init_weights)
+            weights = torch.load(init_weights, weights_only=True)
         else:
             # otherwise, assume the init_weights are the weights dictionary
             weights = init_weights
@@ -794,7 +794,7 @@ def load_training(model_key,
     for fl in os.listdir(path):
         if fl.startswith('best_') and fl.endswith('.pt'):
             flnm = os.path.join(path, fl)
-            state = torch.load(flnm)
+            state = torch.load(flnm, weights_only=True)
             #nfeat = state['base_model.conv1.weight'].shape[1]
             nfeat = state['layer0.0.weight'].shape[1]
             nsegm = state['conv_last.weight'].shape[0]

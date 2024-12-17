@@ -581,7 +581,7 @@ class ImageCache:
         if not filename.startswith(cp) and not os.path.isabs(filename):
             filename = os.path.join(cp, filename)
         try:
-            return torch.load(filename)
+            return torch.load(filename, weights_only=True)
         except Exception:
             return None
     def get(self, target_id, feature_name,

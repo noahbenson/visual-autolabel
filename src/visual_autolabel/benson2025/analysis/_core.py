@@ -506,7 +506,7 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
             inputs, outputs, 'options',
             model_cache_path=model_cache_path)
         base_model = opts['base_model']
-        state = torch.load(pp.local_path('model.pt'))
+        state = torch.load(pp.local_path('model.pt'), weights_only=True)
         nfeat = state['layer0.0.weight'].shape[1]
         nsegm = state['conv_last.weight'].shape[0]
         mdl = UNet(nfeat, nsegm, base_model=base_model)
