@@ -24,6 +24,7 @@ from ..util import (
     is_partition,
     partition as make_partition,
     partition_id,
+    lookup_sids,
     trndata,
     valdata,
     loss as calc_loss,
@@ -731,19 +732,6 @@ def train_until(in_features, out_features, training_plan,
             training_history)
     return training_history
 
-def lookup_sids(dataset):
-    """Returns a list of subject IDs for the given dataset name.
-
-    The only argument, `dataset`, should be either `'hcp'` or `'nyu'`.
-    """
-    if dataset == 'hcp':
-        from ..benson2025.config import hcp_sids
-        return hcp_sids
-    elif dataset == 'nyu':
-        from ..benson2025.config import nyu_sids
-        return nyu_sids
-    else:
-        raise ValueError("unrecognized dataset: {dataset}")
 def load_training(model_key,
                   model_cache_path=None,
                   partition_log_marker='Partition ID:',

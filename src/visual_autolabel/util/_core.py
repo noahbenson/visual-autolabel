@@ -120,6 +120,19 @@ def partition_id(obj):
     sids = sorted(trn + val, key=lambda x:x[0])
     pid = int(''.join([x[1] for x in sids]), 2)
     return hex(pid)
+def lookup_sids(dataset):
+    """Returns a list of subject IDs for the given dataset name.
+
+    The only argument, `dataset`, should be either `'hcp'` or `'nyu'`.
+    """
+    if dataset == 'hcp':
+        from ..benson2025.config import hcp_sids
+        return hcp_sids
+    elif dataset == 'nyu':
+        from ..benson2025.config import nyu_sids
+        return nyu_sids
+    else:
+        raise ValueError("unrecognized dataset: {dataset}")
 def partition(sids, how=default_partition):
     """Partitions a list of subject-IDs into a training and validation set.
 

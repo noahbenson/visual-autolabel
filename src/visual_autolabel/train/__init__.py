@@ -13,7 +13,6 @@ from ._core import (
     build_model,
     run_modelplan,
     train_until,
-    lookup_sids,
     load_training
 )
 
@@ -22,6 +21,5 @@ __all__ = [
     "build_model",
     "run_modelplan",
     "train_until",
-    "lookup_sids",
     "load_training"
 ]
