@@ -24,7 +24,7 @@ from ....image import (
 
 
 def main(args, /, exit_on_error=False):
-    """Executes the training used by Benson et al. (2024).
+    """Executes the training used by Benson et al. (2025).
     
     This function allows you to run the main function for the command line:
     ```bash
