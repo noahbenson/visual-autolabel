@@ -1,0 +1,7 @@
+{"freesurfer_subject_paths":       "/coredata/fssubjects",
+ "data_cache_root":                "/data/neuropythy",
+ "hcp_subject_paths":              "/data/hcp/subjects",
+ "hcp_auto_download":              true,
+ "hcp_lines_path":                 "/data/hcp/lines",
+ "hcp_metadata_path":              "/data/hcp/meta",
+ "visual_performance_fields_path": "/data/performance-fields"}
