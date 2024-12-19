@@ -270,6 +270,45 @@ def convrelu(in_channels, out_channels,
         torch.nn.Conv2d(in_channels, out_channels, kernel,
                         padding=padding, bias=bias),
         torch.nn.ReLU(inplace=inplace))
+def convrelu3D(in_channels, out_channels,
+             kernel=3,
+             padding=None,
+             stride=1,
+             bias=True,
+             inplace=True):
+    """Shortcut for creating a PyTorch 3D convolution followed by a ReLU.
+
+    Parameters
+    ----------
+    in_channels : int
+        The number of input channels in the convolution.
+    out_channels : int
+        The number of output channels in the convolution.
+    kernel : int, optional
+        The kernel size for the convolution (default: 3).
+    padding : int or None, optional
+        The padding size for the convolution; if `None` (the default), then
+        chooses a padding size that attempts to maintain the image-size.
+    stride : int, optional
+        The stride to use in the convolution (default: 1).
+    bias : boolean, optional
+        Whether the convolution has a learnable bias (default: True).
+    inplace : boolean, optional
+        Whether to perform the ReLU operation in-place (default: True).
+
+    Returns
+    -------
+    torch.nn.Sequential
+        The model of a 3D-convolution followed by a ReLU operation.
+    """
+    if padding is None:
+        padding = kernel_default_padding(kernel)
+    return torch.nn.Sequential(
+        torch.nn.Conv3d(
+            in_channels, out_channels, kernel,
+            padding=padding,
+            bias=bias),
+        torch.nn.ReLU(inplace=inplace))
 
 #-------------------------------------------------------------------------------
 # Loss Functions

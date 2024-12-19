@@ -518,11 +518,16 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
         mdl.load_state_dict(state)
         return mdl
     elif part == 'options':
+        print(pp.local_path('options.json'))
         with open(pp.local_path('options.json'), 'rt') as f:
-             return json.load(f)
+            print('*'*80)
+            print(f.read())
+            print('*'*80)
+        with open(pp.local_path('options.json'), 'rt') as f:
+            return json.load(f)
     elif part == 'plan':
         with open(pp.local_path('plan.json'), 'rt') as f:
-             return json.load(f)
+            return json.load(f)
     elif part == 'history':
         return pd.read_csv(
             pp.local_path('training.tsv'),
