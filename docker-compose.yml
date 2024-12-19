@@ -1,0 +1,15 @@
+version: '3'
+services:
+  analysis:
+    container_name: visual_autolabel
+    image: nben/benson2025-unet:latest
+    command: jupyter
+    ports:
+       - "8888:8888"
+    volumes:
+       - "$HOME/.aws:/home/jovyan/.aws"
+       - "$HOME:/home/jovyan/exthome"
+       #- "/data/hcp/subjects:/data/hcp/subjects"
+       #- "/data/hcp/meta:/data/hcp/meta/"
+       #- "/data/visual-autolabel:/data/visual-autolabel"
+       #- "/data/performance-fields:/data/performance-fields"

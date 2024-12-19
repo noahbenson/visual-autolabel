@@ -404,7 +404,7 @@ def _to_model_cache_pseudo_path(model_cache_path):
             return model_cache_path
         raise ValueError("model_cache_path must be a local directory name")
     # Parse the model_cache_path.
-    if model_cache_path is Ellipsis:
+    if model_cache_path is Ellipsis or model_cache_path is None:
         from visual_autolabel.benson2025.config import model_cache_path
     elif isinstance(model_cache_path, Path):
         model_cache_path = os.fspath(model_cache_path)

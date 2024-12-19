@@ -96,7 +96,7 @@ dataset_cache_path = '/data/visual-autolabel/datasets'
 
 #-------------------------------------------------------------------------------
 # model_cache_path
-model_cache_path = '/data/visual-autolabel/models'
+model_cache_path = '/data/visual-autolabel/models/benson2025'
 
 #-------------------------------------------------------------------------------
 # analysis_path

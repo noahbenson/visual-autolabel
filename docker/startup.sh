@@ -25,14 +25,11 @@ function help_msg {
     echo " * bash"
     echo "   Starts a BASH session; should be used with the interactive (-it)"
     echo "   docker run option."
-    echo " * apply | generate | train"
-    echo "   Runs the command as a visual_autolabel.cmd library command. These"
-    echo "   commands either apply visual_autolabel model to subjects,"
-    echo "   generate data used by Benson, Song, et al. (2025), or train one"
-    echo "   of the models trained in the same paper."
-    echo ""
-    echo "For additional help, run one of the above subcommands with the"
-    echo "argument help."
+    echo " * <anything else>"
+    echo "   Runs the command as a visual_autolabel library command. This"
+    echo "   command applies the visual_autolabel model published by by Benson,"
+    echo "   Song, et al. (2025) to a FreeSurfer subject. For more information,"
+    echo "   run this command with the argument `--help`."
 }
 function syntax {
     help_msg

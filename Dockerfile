@@ -53,20 +53,48 @@ RUN jupyter labextension disable "@jupyterlab/apputils-extension:announcements"
 # Warm up the python libraries.
 RUN python -c 'import neuropythy, boto3, matplotlib, matplotlib.pyplot, pandas'
 
-# Configure neuropythy:
-COPY docker/npythyrc.json /home/jovyan/.npythyrc
-
 
 # A few final things should be done as root:
 USER root
 
+# We want to run things in the /root (home) directory, and we want a /data
+# directory to mount things into.
+RUN mkdir -p /data \
+             /data/visual-autolabel \
+             /data/hcp /data/hcp/meta \
+             /data/performance-fields
+
+# We want to pre-install the model weights for the areas and rings.
+RUN mkdir -p /data/visual-autolabel/models/benson2025/anat_area
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/model.pt \
+        https://osf.io/download/67636e408dce3a7450a345b8/
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/options.json \
+        https://osf.io/download/67636e69094e7a3c4db71d63/
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/plan.json \
+        https://osf.io/download/67636e5fe5ffed714fcf0aa2/
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/training.tsv \
+        https://osf.io/download/67636e59baeaf4d3becf0e85/
+RUN mkdir -p /data/visual-autolabel/models/benson2025/anat_ring
+#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/model.pt \
+#
+#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/options.json \
+#
+#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/plan.json \
+#
+#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/training.tsv \
+#
+
+# Configure neuropythy:
+COPY docker/npythyrc.json /home/jovyan/.npythyrc
+
+# Copy our notebook in:
+COPY benson2025/analysis.ipynb /home/jovyan/benson2025-analysis.ipynb
+# Fix the permissions on the analysis notebook.
+RUN fix-permissions "${HOME}/benson2025-analysis.ipynb"
+
 # Put the startup script somewhere.
 COPY docker/startup.sh /startup.sh
 RUN chown root:root /startup.sh && chmod 755 /startup.sh
-
-# We want to run things in the /root (home) directory, and we want a /data
-# directory to mount things into.
-RUN mkdir -p /data /data/visual-autolabel /data/hcp /data/performance-fields
 
 # Put the library into the image:
 COPY . $HOME/visual-autolabel

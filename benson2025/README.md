@@ -88,7 +88,7 @@ following instructions are provided:
    ```bash
    docker run --rm -it \
               -p 8888:8888 \
-              -v <HCP-restricted-data>:/data/meta/RESTRICTED_full.csv \
+              -v <HCP-restricted-data>:/data/hcp/meta/RESTRICTED_full.csv \
               -v "${HOME}/.aws:/home/jovyan/.aws" \
               nben/visual_autolabel:benson2025 jupyter
    ```
