@@ -155,29 +155,33 @@ def main(argv=None):
     if args['verbose']:
         print("\nApplying model:")
     for targ in targets:
-        targ = Path(targ)
-        if not targ.is_dir():
-            raise RuntimeError(
-                f"FreeSurfer subject must be a directory: {str(targ)}")
+        # This is a reasonable check, but it's commented out because we want
+        # the user to be able to specify a local output directory for a subject
+        # in the cloud, like:
+        # s3://openneuro.org/ds003787/derivatives/freesurfer/sub-wlsubj001
+        #if not targ.is_dir():
+        #    raise RuntimeError(
+        #        f"FreeSurfer subject must be a directory: {str(targ)}")
         if args['verbose']:
             print(f"  * {str(targ)}")
         # Make sure we have a subject or subject path!
         try:
-            sub = ny.freesurfer_subject(str(targ))
+            sub = ny.freesurfer_subject(targ)
         except Exception:
             try:
-                sub = ny.hcp_subject(str(targ))
+                sub = ny.hcp_subject(targ)
             except Exception:
                 try:
-                    sub = ny.freesurfer_subject(str(targ), check_path=False)
+                    sub = ny.freesurfer_subject(targ, check_path=False)
                 except Exception as e:
                     raise e.with_traceback(None)
+        targpath = Path(sub.path)
         # Apply the model:
         outputs = args['outputs']
         (lh_labels, rh_labels) = apply_benson2025(sub, outputs)
         # Write the outputs:
         if args['surface']:
-            opath = Path(args.get('outputdir', targ / 'surf'))
+            opath = Path(args.get('outputdir', targpath / 'surf'))
             filepath = str(opath / f'lh.{args["tag"]}.mgz')
             if args['verbose']:
                 print(f"    Saving file: {filepath}")
@@ -190,7 +194,7 @@ def main(argv=None):
             ctab = np.array(
                 [[0,0,0,0], [255,0,0,255], [0,255,0,255], [0,0,255,255]])
             names = ['none', 'V1', 'V2', 'V3']
-            opath = Path(args.get('outputdir', targ / 'label'))
+            opath = Path(args.get('outputdir', targpath / 'label'))
             filepath = opath / f'lh.{args["tag"]}.annot'
             if args['verbose']:
                 print(f"    Saving file: {filepath}")
@@ -215,7 +219,7 @@ def main(argv=None):
                 (lh_labels, rh_labels),
                 args['volume'],
                 method='nearest')
-            opath = Path(args.get('outputdir', targ / 'mri'))
+            opath = Path(args.get('outputdir', targpath / 'mri'))
             filepath = str(opath / f'{args["tag"]}.{args["volume_format"]}')
             if args['verbose']:
                 print(f"    Saving file: {filepath}")
