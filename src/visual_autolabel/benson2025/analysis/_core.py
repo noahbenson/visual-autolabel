@@ -398,22 +398,27 @@ def all_scores(dataset='all',
 # Loading Model Data
 
 def _to_model_cache_pseudo_path(model_cache_path):
+    from .._core import osf_repository
+    if ny.util.is_pseudo_path(model_cache_path):
+        if model_cache_path.source_path.startswith(f"{osf_repository}/models"):
+            return model_cache_path
+        raise ValueError("model_cache_path must be a local directory name")
     # Parse the model_cache_path.
     if model_cache_path is Ellipsis:
         from visual_autolabel.benson2025.config import model_cache_path
     elif isinstance(model_cache_path, Path):
         model_cache_path = os.fspath(model_cache_path)
-    if not ny.util.is_pseudo_path(model_cache_path):
-        model_cache_path = ny.util.pseudo_path(model_cache_path)
-    return model_cache_path
+    # Okay, make it a pseudo path for the OSF repo's model's directory!
+    return ny.util.pseudo_path(
+        f"{osf_repository}/models",
+        cache_path=model_cache_path)
 def unet(inputs, outputs, part='model', model_cache_path=None):
-    """Loads a UNet from the Benson, Song, and Winawer (2024) dataset.
+    """Loads a UNet from the Benson, Song, et al. (2025) dataset.
     
     Parameters
     ----------
     inputs : str
         The inputs of the model. This must be one of the following:
-        * `'null'`. Blank images.
         * `'anat'`. Anatomical properties that can be derived from a T1-weighted
           image alone; these include the raw midgray coordinates of the
           individual vertices for the hemisphere (`'x'`, `'y'`, `'z'`), values
@@ -473,9 +478,7 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
         `'history'`.
     """
     parts = ('model','options','plan','history')
-    # Parse the model_cache_path first.
-    model_cache_path = _to_model_cache_pseudo_path(model_cache_path)
-    # Next parse the part argument.
+    # First parse the part argument.
     if not isinstance(part, str):
         if part is Ellipsis:
             part = set(parts)
@@ -493,8 +496,10 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
                 for k in part}
         else:
             raise TypeError(f'unrecognized type for part option: {type(part)}')
+    # Next, parse the model_cache_path.
+    model_cache_path = _to_model_cache_pseudo_path(model_cache_path)
     # Now we can descend into the models' directory and load the part.
-    pp = model_cache_path.subpath(f'benson2025_{inputs}_{outputs}')
+    pp = model_cache_path.subpath(f'{inputs}_{outputs}')
     part = part.lower()
     if part == 'all':
         return unet(
@@ -539,12 +544,11 @@ def all_unets(model_cache_path=None):
     ```
     """
     from ..hcp import input_properties
-    mcp = _to_model_cache_pseudo_path(model_cache_path)
     d = {
         (inputs, outputs): ny.util.curry(
             unet,
             inputs, outputs, 'all',
-            model_cache_path=mcp)
+            model_cache_path=model_cache_path)
         for inputs in input_properties.keys()
         for outputs in ['area', 'ring']}
     return pimms.lazy_map(d)

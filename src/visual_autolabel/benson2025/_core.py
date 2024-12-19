@@ -12,3 +12,7 @@ t1only_properties = ('x', 'y', 'z',
                      'curvature', 'convexity',
                      'thickness', 'surface_area')
 fnonly_properties = ('prf_x', 'prf_y', 'prf_sigma', 'prf_cod')
+
+# The OSF Repository............................................................
+# This is used to download data and models.
+osf_repository = 'osf://c49dv/'

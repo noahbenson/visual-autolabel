@@ -20,6 +20,8 @@ from .analysis import (
     unet,
     all_unets)
 
+from ._core import osf_repository
+
 # We import the UNet used as a convenience.
 from ..image import UNet
 
