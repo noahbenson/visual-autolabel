@@ -1,0 +1,6 @@
+{"until": 10,
+ "prediction": "area",
+ "base_model": "resnet18",
+ "dataset_cache_path": "/data/visual-autolabel/datasets/HCP",
+ "model_cache_path": "/data/visual-autolabel/models",
+ "partition": "default"}
