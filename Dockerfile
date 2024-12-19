@@ -67,22 +67,22 @@ RUN mkdir -p /data \
 # We want to pre-install the model weights for the areas and rings.
 RUN mkdir -p /data/visual-autolabel/models/benson2025/anat_area
 RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/model.pt \
-        https://osf.io/download/67636e408dce3a7450a345b8/
+        https://osf.io/download/srjz8/
 RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/options.json \
-        https://osf.io/download/67636e69094e7a3c4db71d63/
+        https://osf.io/download/m8yaq/
 RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/plan.json \
-        https://osf.io/download/67636e5fe5ffed714fcf0aa2/
+        https://osf.io/download/p96kg/
 RUN curl -o /data/visual-autolabel/models/benson2025/anat_area/training.tsv \
         https://osf.io/download/67636e59baeaf4d3becf0e85/
 RUN mkdir -p /data/visual-autolabel/models/benson2025/anat_ring
-#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/model.pt \
-#
-#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/options.json \
-#
-#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/plan.json \
-#
-#RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/training.tsv \
-#
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/model.pt \
+        https://osf.io/download/676485509e6d40e8f5434006/
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/options.json \
+        https://osf.io/download/676483c85b4a0574cf433e69/
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/plan.json \
+        https://osf.io/download/676483d453ebdc02599638d7/
+RUN curl -o /data/visual-autolabel/models/benson2025/anat_ring/training.tsv \
+        https://osf.io/download/676483e1331a136c36e4bec9/
 
 # Configure neuropythy:
 COPY docker/npythyrc.json /home/jovyan/.npythyrc

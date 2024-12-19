@@ -156,9 +156,13 @@ def main(argv=None):
         print("\nApplying model:")
     for targ in targets:
         targ = Path(targ)
-        if not targ.is_dir():
-            raise RuntimeError(
-                f"FreeSurfer subject must be a directory: {str(targ)}")
+        # This is a reasonable check, but it's commented out because we want
+        # the user to be able to specify a local output directory for a subject
+        # in the cloud, like:
+        # s3://openneuro.org/ds003787/derivatives/freesurfer/sub-wlsubj001
+        #if not targ.is_dir():
+        #    raise RuntimeError(
+        #        f"FreeSurfer subject must be a directory: {str(targ)}")
         if args['verbose']:
             print(f"  * {str(targ)}")
         # Make sure we have a subject or subject path!
