@@ -133,6 +133,28 @@ rh.subj02.benson2025_varea.mgz
 rh.subj03.benson2025_varea.mgz
 ```
 
+The outputs produced by the files mark vertices (or voxels in the case of
+volumetric image outputs) with one of the following labels:
+
+**Visual Areas (`*_varea.*`)**  
+| Label | Area |
+|:-----:|:----:|
+|  1    |  V1  |
+|  2    |  V2  |
+|  3    |  V3  |
+|  0    | none |
+
+**Iso-eccentric Rings (`*_vring.*`)**
+| Label | Ring                  |
+|:-----:|:---------------------:|
+|  1    | 0&deg;&ndash;0.5&deg; |
+|  2    | 0.5&deg;&ndash;1&deg; |
+|  3    | 1&deg;&ndash;2&deg;   |
+|  4    | 2&deg;&ndash;4&deg;   |
+|  5    | 4&deg;&ndash;7&deg;   |
+|  0    | none                  |
+
+
 ## Acknowledgements
 
 This work was funded by NEI grant 1R01EY033628 (to N.C.B).
