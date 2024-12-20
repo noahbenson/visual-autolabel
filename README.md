@@ -95,7 +95,14 @@ command can be changed by a few options:
   regions.
 * `-V <template>` or `--volume=<template>`. Also output a Nifti or MGZ volume,
   depending on the file type of the given template image, of the visual areas or
-  rings. The file is written to the subject's `mri/` directory by default.
+  rings. The file is written to the subject's `mri/` directory by default. The
+  template image must be an image file itself or the string `'native'` or
+  `'raw'`. If an image file (`.mgz`, `.mgh`, `.nii`, or `.nii.gz`) is given,
+  then the resulting image will have the same affine, shape, and file type as
+  the template. The option `'native'` results in an image with the native
+  FreeSurfer orientation, such as in the subject's `ribbon.mgz` file while the
+  option `'raw'` results in an image with the subjects' `rawavg.mgz` file, which
+  is typically aligned to the scanner.
 * `-a` or `--annot`. Also output a FreeSurfer annotation file, by default to the
   subject's `label/` directory.
 * `-x` or `--no-surface`. Skip writing out the surface MGZ files to the
