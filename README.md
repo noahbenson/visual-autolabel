@@ -90,6 +90,8 @@ command can be changed by a few options:
 * `-v` or `--verbose`. Print status messages.
 * `-r` or `--rings`. Predict the 5 iso-eccentric regions instead of the visual
   area boundaries.
+* `-r` or `--rings`. Predict both the visual areas and the 5 iso-eccentric
+  regions.
 * `-V <template>` or `--volume=<template>`. Also output a Nifti or MGZ volume,
   depending on the file type of the given template image, of the visual areas or
   rings. The file is written to the subject's `mri/` directory by default.
@@ -117,6 +119,7 @@ https://naturalscenesdataset.org/):
 $ docker --rm -it -v .:/out \
 >        nben/benson2025-unet:latest \
 >        --output-dir=/out \
+>        --both \
 >        --tag='{subject}.benson2025' \
 >        s3://natural-scenes-dataset/nsddata/freesurfer/subj01 \
 >        s3://natural-scenes-dataset/nsddata/freesurfer/subj02 \
@@ -126,11 +129,17 @@ $ docker --rm -it -v .:/out \
 
 $ ls
 lh.subj01.benson2025_varea.mgz
+lh.subj01.benson2025_vring.mgz
 lh.subj02.benson2025_varea.mgz
+lh.subj02.benson2025_vring.mgz
 lh.subj03.benson2025_varea.mgz
+lh.subj03.benson2025_vring.mgz
 rh.subj01.benson2025_varea.mgz
+rh.subj01.benson2025_vring.mgz
 rh.subj02.benson2025_varea.mgz
+rh.subj02.benson2025_vring.mgz
 rh.subj03.benson2025_varea.mgz
+rh.subj03.benson2025_vring.mgz
 ```
 
 The outputs produced by the files mark vertices (or voxels in the case of
