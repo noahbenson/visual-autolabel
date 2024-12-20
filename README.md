@@ -17,25 +17,25 @@ degrees of visual eccentricity within the same areas.
   University of Washington  
   Seattle, United States
   
-  (*Previous Affiliation*)
+  (*Previous Affiliation*)  
   Department of Psychology  
   New York University  
   New York, United States
-* Bogeng Song  
+* **Bogeng Song**  
   Department of Psychology  
   New York University  
   New York, United States
   
-  (*Current Affiliation*)
+  _*Current Affiliation*_  
   Department of Psychology  
   Georgia Institute of Technology  
   Georgia, United States
-* Shaoling Chen  
+* **Shaoling Chen**  
   Courant Institute  
   New York University  
   New York, United States
   
-  (*Current Affiliation*)
+  _*Current Affiliation*_  
   Amazon.com, Inc.  
   Seattle, United States
 
