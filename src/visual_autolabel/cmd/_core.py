@@ -42,6 +42,10 @@ The following options are also accepted:
    Instead of predicting visual area boundaries for V1, V2, and V3, predict the
    iso-eccentric rings between 0-0.5, 0.5-1, 1-2, 2-4, and 4-7 degrees of
    eccentricity.
+ * -b | --both
+   In addition to predicting visual area boundaries for V1, V2, and V3, also 
+   predict the iso-eccentric rings between 0-0.5, 0.5-1, 1-2, 2-4, and 4-7
+   degrees of eccentricity.
  * -a | --annot
    Export the results to a pair of FreeSurfer annotation files named
    `lh.benson2025.annot` and `rh.benson2025.annot`. The colors for V1, V2, and
@@ -90,6 +94,8 @@ def main(argv=None):
             args['verbose'] = True
         elif arg == '-r' or arg == '--rings':
             args['outputs'] = 'ring'
+        elif arg == '-b' or arg == '--both':
+            args['outputs'] = 'both'
         elif arg == '-a' or arg == '--annot':
             args['annot'] = True
         elif arg == '-x' or arg == '--no-surface':
@@ -178,52 +184,56 @@ def main(argv=None):
         targpath = Path(sub.path)
         # Apply the model:
         outputs = args['outputs']
-        (lh_labels, rh_labels) = apply_benson2025(sub, outputs)
-        # Write the outputs:
-        if args['surface']:
-            opath = Path(args.get('outputdir', targpath / 'surf'))
-            filepath = str(opath / f'lh.{args["tag"]}.mgz')
-            if args['verbose']:
-                print(f"    Saving file: {filepath}")
-            ny.save(filepath, lh_labels)
-            filepath = str(opath / f'rh.{args["tag"]}.mgz')
-            if args['verbose']:
-                print(f"    Saving file: {filepath}")
-            ny.save(filepath, rh_labels)
-        if args['annot']:
-            ctab = np.array(
-                [[0,0,0,0], [255,0,0,255], [0,255,0,255], [0,0,255,255]])
-            names = ['none', 'V1', 'V2', 'V3']
-            opath = Path(args.get('outputdir', targpath / 'label'))
-            filepath = opath / f'lh.{args["tag"]}.annot'
-            if args['verbose']:
-                print(f"    Saving file: {filepath}")
-            nib.freesurfer.io.write_annot(
-                filepath,
-                labels=lh_labels,
-                ctab=ctab,
-                names=names)
-            filepath = opath / f'rh.{args["tag"]}.annot'
-            if args['verbose']:
-                print(f"    Saving file: {filepath}")
-            nib.freesurfer.io.write_annot(
-                filepath,
-                labels=rh_labels,
-                ctab=ctab,
-                names=names)
-        if args['volume'] is not None:
-            # Convert to volume first:
-            if args['verbose']:
-                print("    Converting surface labels into volume labels...")
-            vol = sub.cortex_to_image(
-                (lh_labels, rh_labels),
-                args['volume'],
-                method='nearest')
-            opath = Path(args.get('outputdir', targpath / 'mri'))
-            filepath = str(opath / f'{args["tag"]}.{args["volume_format"]}')
-            if args['verbose']:
-                print(f"    Saving file: {filepath}")
-            ny.save(filepath, vol)
+        outputs = ('area', 'ring') if outputs == 'both' else (outputs,)
+        for output in outputs:
+            (lh_labels, rh_labels) = apply_benson2025(sub, output)
+            tag = args['tag'].format(subject=sub.name)
+            # Write the outputs:
+            if args['surface']:
+                opath = Path(args.get('outputdir', targpath / 'surf'))
+                filepath = str(opath / f'lh.{tag}_v{output}.mgz')
+                if args['verbose']:
+                    print(f"    Saving file: {filepath}")
+                ny.save(filepath, lh_labels)
+                filepath = str(opath / f'rh.{tag}_v{output}.mgz')
+                if args['verbose']:
+                    print(f"    Saving file: {filepath}")
+                ny.save(filepath, rh_labels)
+            if args['annot']:
+                ctab = np.array(
+                    [[0,0,0,0], [255,0,0,255], [0,255,0,255], [0,0,255,255]])
+                names = ['none', 'V1', 'V2', 'V3']
+                opath = Path(args.get('outputdir', targpath / 'label'))
+                filepath = opath / f'lh.{tag}_v{output}.annot'
+                if args['verbose']:
+                    print(f"    Saving file: {filepath}")
+                nib.freesurfer.io.write_annot(
+                    filepath,
+                    labels=lh_labels,
+                    ctab=ctab,
+                    names=names)
+                filepath = opath / f'rh.{tag}_v{output}.annot'
+                if args['verbose']:
+                    print(f"    Saving file: {filepath}")
+                nib.freesurfer.io.write_annot(
+                    filepath,
+                    labels=rh_labels,
+                    ctab=ctab,
+                    names=names)
+            if args['volume'] is not None:
+                # Convert to volume first:
+                if args['verbose']:
+                    print("    Converting surface labels into volume labels...")
+                vol = sub.cortex_to_image(
+                    (lh_labels, rh_labels),
+                    args['volume'],
+                    method='nearest')
+                opath = Path(args.get('outputdir', targpath / 'mri'))
+                filepath = opath / f'{tag}_v{output}.{args["volume_format"]}'
+                filepath = str(filepath)
+                if args['verbose']:
+                    print(f"    Saving file: {filepath}")
+                ny.save(filepath, vol)
     # That is all we do!
     if args['verbose']:
         print("visual-autolabel complete!")

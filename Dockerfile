@@ -5,11 +5,15 @@
 # The docker image published with the paper Benson, Song, et al. (2025)
 # was built using this Dockerfile.
 #
+# The docker image can also be used to apply the models from the above
+# publication; this is the same as using the command line of the
+# visual_autolabel library.
+#
 # The built docker-image contains an installation of pytorch, neuropythy,
 # jupyter, matplotlib, visual_autolabel, and all of their dependencies.
 #
 # To run the docker image, use the command:
-#    docker run --rm -it nben/visual_autolabel:latest help
+#    docker run --rm -it nben/benson2025-unet:latest help
 # 
 # Author: Noah. C. Benson
 
