@@ -12,7 +12,7 @@ degrees of visual eccentricity within the same areas.
 
 ## Authors
 
-* **[Noah C. Benson](nben@uw.edu)** (*Corresponding Author*)  
+* **[Noah C. Benson](mailto:nben@uw.edu)** (*Corresponding Author*)  
   eScience Institute  
   University of Washington  
   Seattle, United States
