@@ -86,7 +86,7 @@ def main(argv=None):
         if arg == '-h' or arg == '--help':
             print(syntax_message)
             return 0
-        elif arg == '-v' or arg == '--volume':
+        elif arg == '-v' or arg == '--verbose':
             args['verbose'] = True
         elif arg == '-r' or arg == '--rings':
             args['outputs'] = 'ring'
