@@ -6,8 +6,9 @@ uses the [Young Adult Human Connectome Project (HCP)](
 https://db.humanconnectome.org/), and the [HCP 7 Tesla Retinotopy Dataset](
 https://doi.org/10.1167/18.13.23) to train convolutional neural networks to
 predict both the boundaries of visual area V1, V2, and V3 and a set of five
-orthogonal quasi-iso-eccentric regions spanning 0-0.5, 0.5-1, 1-2, 2-4, and 4-7
-degrees of visual eccentricity within the same areas.
+orthogonal quasi-iso-eccentric regions spanning 0&ndash;0.5&deg;,
+0.5&ndash;1&deg;, 1&ndash;2&deg;, 2&ndash;4&deg;, and 4&ndash;7&deg; of visual
+eccentricity within the same areas.
 
 
 ## Authors
@@ -50,7 +51,7 @@ This repository contains the following files and directories:
    extended to rapidly create cached datasets for training new CNNs from
    cortical surface data and a set of documentation and code for the paper
    associated with this repository.
- * `Dockerfile`. This file contains instructions to build a docker image that is
+ * `Dockerfile`. This file contains instructions to build a docker image that
    stores an environment equivalent to the environment in which the analyses and
    figures of the original paper were generated.
  * `LICENSE`. This project has been released under the MIT license.
@@ -90,7 +91,7 @@ command can be changed by a few options:
 * `-v` or `--verbose`. Print status messages.
 * `-r` or `--rings`. Predict the 5 iso-eccentric regions instead of the visual
   area boundaries.
-* `-r` or `--rings`. Predict both the visual areas and the 5 iso-eccentric
+* `-b` or `--both`. Predict both the visual areas and the 5 iso-eccentric
   regions.
 * `-V <template>` or `--volume=<template>`. Also output a Nifti or MGZ volume,
   depending on the file type of the given template image, of the visual areas or
@@ -101,7 +102,7 @@ command can be changed by a few options:
   subject's `surf/` by default.
 * `-o` or `--output-dir=<dir>`. Write the output files to the given directory
   instead of to the subject's subdirectories.
-* `-t<value>` or `--tag=<value>`. Change the tag that is use in output
+* `-t<value>` or `--tag=<value>`. Change the tag that is used in output
   filenames. The filenames used by `visual_autolabel` are, for surface MGZ and
   annotation file outputs, `{hemisphere}.{tag}_{label}.{ext}`, and for
   volumetric images, `{tag}_{label}.{ext}`. The default `tag` is `'benson2025'`,
