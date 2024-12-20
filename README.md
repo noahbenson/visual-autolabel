@@ -16,17 +16,12 @@ degrees of visual eccentricity within the same areas.
   eScience Institute  
   University of Washington  
   Seattle, United States
-  
-  (*Previous Affiliation*)  
-  Department of Psychology  
-  New York University  
-  New York, United States
 * **Bogeng Song**  
   Department of Psychology  
   New York University  
   New York, United States
   
-  _*Current Affiliation*_  
+  *Current Affiliation*  
   Department of Psychology  
   Georgia Institute of Technology  
   Georgia, United States
@@ -138,5 +133,7 @@ rh.subj02.benson2025_varea.mgz
 rh.subj03.benson2025_varea.mgz
 ```
 
+## Acknowledgements
 
+This work was funded by NEI grant 1R01EY033628 (to N.C.B).
 
