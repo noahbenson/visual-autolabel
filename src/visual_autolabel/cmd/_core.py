@@ -129,9 +129,10 @@ def main(argv=None):
             targets.append(arg)
     # Make sure everything is fine:
     vol = args['volume']
-    if vol is not None:
+    if vol is not None and vol != 'native' and vol != 'raw':
         vol = Path(vol)
         if not vol.is_file():
+            # We allow this because it might be the name of a subject image.
             raise RuntimeError(
                 f"given volume template is not a file: {str(vol)}")
         elif str(vol).endswith('.nii') or str(vol).endswith('.nii.gz'):
@@ -200,9 +201,16 @@ def main(argv=None):
                     print(f"    Saving file: {filepath}")
                 ny.save(filepath, rh_labels)
             if args['annot']:
-                ctab = np.array(
-                    [[0,0,0,0], [255,0,0,255], [0,255,0,255], [0,0,255,255]])
-                names = ['none', 'V1', 'V2', 'V3']
+                if output == 'area':
+                    ctab = np.array(
+                        [[0,0,0,0],[255,0,0,255],[0,255,0,255],[0,0,255,255]])
+                    names = ['none', '0-0.5deg', '0.5-1deg', '1-2deg',
+                             '2-4deg', '4-7deg']
+                else:
+                    ctab = np.array(
+                        [[0,0,0,0],[255,0,0,255],[255,255,0,255],[0,255,0,255],
+                         [0,255,255,255],[0,0,255,255]])
+                    names = ['none', 'V1', 'V2', 'V3']
                 opath = Path(args.get('outputdir', targpath / 'label'))
                 filepath = opath / f'lh.{tag}_v{output}.annot'
                 if args['verbose']:
@@ -221,20 +229,33 @@ def main(argv=None):
                     ctab=ctab,
                     names=names)
             if args['volume'] is not None:
+                vol = args['volume']
+                if isinstance(vol, str):
+                    vol = sub.images['ribbon' if vol == 'native' else 'raw']
+                    vol = ny.image_copy(
+                        vol,
+                        dataobj=np.zeros(vol.shape, dtype=np.int32))
+                    if isinstance(vol, nib.freesurfer.mghformat.MGHImage):
+                        volfmt = 'mgz'
+                    else:
+                        volfmt = 'nii.gz'
+                else:
+                    volfmt = args["volume_format"]
                 # Convert to volume first:
                 if args['verbose']:
                     print("    Converting surface labels into volume labels...")
                 vol = sub.cortex_to_image(
                     (lh_labels, rh_labels),
-                    args['volume'],
+                    vol,
                     method='nearest')
                 opath = Path(args.get('outputdir', targpath / 'mri'))
-                filepath = opath / f'{tag}_v{output}.{args["volume_format"]}'
+                filepath = opath / f'{tag}_v{output}.{volfmt}'
                 filepath = str(filepath)
                 if args['verbose']:
                     print(f"    Saving file: {filepath}")
                 ny.save(filepath, vol)
     # That is all we do!
     if args['verbose']:
-        print("visual-autolabel complete!")
+        print("")
+        print("Model evaluation complete!")
     return 0
