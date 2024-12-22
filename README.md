@@ -150,7 +150,7 @@ rh.subj03.benson2025_varea.mgz
 rh.subj03.benson2025_vring.mgz
 ```
 
-#### Output Files
+### Output Files
 
 The outputs produced by the files mark vertices (or voxels in the case of
 volumetric image outputs) with one of the following labels:
@@ -174,7 +174,7 @@ volumetric image outputs) with one of the following labels:
 |  0    | none                  |
 
 
-#### Limitations
+### Limitations
 
 The CNNs applied by the `visual-autolabel` library use as input data a variety
 of anatomical features processed by FreeSurfer, specifically the curvature, the
