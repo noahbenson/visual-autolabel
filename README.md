@@ -191,11 +191,12 @@ caveats, all of which are listed here.
 * The predictions made by the CNNs are for the most foveal parts of V1, V2, and
   V3 only: they should cover 0&deg;&ndash;7&deg; of eccentricity.
 * The CNNs have been both cross-validated on a left-out dataset and evaluated on
-  an independent dataset. In both cases, the accuracy of the models was 74%,
-  averaged over V1, V2, and V3, using the S&oslash;rensen-Dice coefficient. In
-  V1, V2, and V3 separately, the accuracy was approximately 84%, 74%, and
-  63%. For comparison, the inter-rater reliability of human experts who draw the
-  boundaries on the functional maps by hand was 93%, 88% and 83%, respectively.
+  an independent dataset. Combined, the accuracy of the models was 74%, averaged
+  over V1, V2, and V3, using the S&oslash;rensen-Dice coefficient with only
+  small differences in accuracy between the dataset. In V1, V2, and V3
+  separately, the accuracy was approximately 84%, 74%, and 63%. For comparison,
+  the inter-rater reliability of human experts who draw the boundaries on the
+  functional maps by hand was 93%, 88% and 83%, respectively.
 * Because the models are CNNs, it is likely that some subjects will be
   dissimilar enough from the original training dataset that the predictions will
   be unreliable. We suggest always checking the predictions by hand before using
