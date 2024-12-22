@@ -150,6 +150,8 @@ rh.subj03.benson2025_varea.mgz
 rh.subj03.benson2025_vring.mgz
 ```
 
+#### Output Files
+
 The outputs produced by the files mark vertices (or voxels in the case of
 volumetric image outputs) with one of the following labels:
 
@@ -170,6 +172,35 @@ volumetric image outputs) with one of the following labels:
 |  4    | 2&deg;&ndash;4&deg;   |
 |  5    | 4&deg;&ndash;7&deg;   |
 |  0    | none                  |
+
+
+#### Limitations
+
+The CNNs applied by the `visual-autolabel` library use as input data a variety
+of anatomical features processed by FreeSurfer, specifically the curvature, the
+sulcal depth, the gray matter thickness, and the vertex surface area. There are
+a number of requirements for this to work and the outputs have a number of
+caveats, all of which are listed here.
+
+**Requirements**
+* The subject provided must have been processed by FreeSurfer (i.e., the input
+  directory must be a FreeSurfer subject directory).
+* The subject must have been registered to FreeSurfer's *fsaverage* subject.
+
+**Caveats**
+* The predictions made by the CNNs are for the most foveal parts of V1, V2, and
+  V3 only: they should cover 0&deg;&ndash;7&deg; of eccentricity.
+* The CNNs have been both cross-validated on a left-out dataset and evaluated on
+  an independent dataset. In both cases, the accuracy of the models was 74%,
+  averaged over V1, V2, and V3, using the S&oslash;rensen-Dice coefficient. In
+  V1, V2, and V3 separately, the accuracy was approximately 84%, 74%, and
+  63%. For comparison, the inter-rater reliability of human experts who draw the
+  boundaries on the functional maps by hand was 93%, 88% and 83%, respectively.
+* Because the models are CNNs, it is likely that some subjects will be
+  dissimilar enough from the original training dataset that the predictions will
+  be unreliable. We suggest always checking the predictions by hand before using
+  them in analyses. In particular, we do not expect this model to perform well
+  on subjects with brain abnormalities or atypical brain structure.
 
 
 ## Acknowledgements
