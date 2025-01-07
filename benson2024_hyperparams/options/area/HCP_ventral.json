@@ -1,0 +1,9 @@
+{"until": 10,
+ "inputs": "trac",
+ "multiproc": false,
+ "prediction": ["hV4", "VO1", "VO2"],
+ "raters": ["A7", "A8", "A11", "A12", "A13"],
+ "base_model": "resnet34",
+ "dataset_cache_path": "/data/visual-autolabel/datasets/HCP",
+ "model_cache_path": "/data/visual-autolabel/models",
+ "partition": "default"}

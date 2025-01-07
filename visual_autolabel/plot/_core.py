@@ -106,9 +106,33 @@ def add_prior(sub, prefix='prior_'):
     rhdat[f'{prefix}visual_area'] = calc_visual_area(rhdat)
     return sub.with_hemi(lh=sub.lh.with_prop(lhdat),
                          rh=sub.rh.with_prop(rhdat))
+def add_wang2015(sub, prefix='wang_'):
+    if add_wang2015.fsaverage_subject is None:
+        fsa = ny.freesurfer_subject('fsaverage')
+        wang = {
+            h: ny.load(
+                os.path.join(
+                    ny.library_path(), 'data', 'fsaverage', 'surf',
+                    f'{h}.wang15_mplbl.v1_0.mgz'))
+            for h in ('lh','rh')}
+        fsa = fsa.with_hemi(
+            lh=fsa.lh.with_prop(wang=wang['lh']),
+            rh=fsa.rh.with_prop(wang=wang['rh']))
+        add_wang2015.fsaverage_subject = fsa
+    else:
+        fsa = add_wang2015.fsaverage_subject
+    hems = {}
+    for h in ('lh','rh'):
+        hem = sub.hemis[h]
+        fsh = fsa.hemis[h]
+        hems[h] = hem.with_prop(
+            wang=fsh.interpolate(hem, 'wang', method='nearest'))
+    return sub.with_hemi(**hems)
+add_wang2015.fsaverage_subject = None
 def add_raterlabels(sub):
     """Returns a copy of the given subject with labels as drawn by raters.
     """
+    from ..benson2024.hcp import HCPImageCache
     lbldata = ny.data['hcp_lines'].subject_labels
     sid = int(sub.name)
     lbls = {}
@@ -128,6 +152,21 @@ def add_raterlabels(sub):
             if sctdat is None: continue
             eccdat = sectors_to_rings(sctdat, areadat)
             ll[f'{anat}_visual_ring'] = eccdat
+        # Ventral and dorsal labels.
+        for anat in HCPImageCache._ventral_raters:
+            lbl = HCPImageCache._get_vd_labels(anat, sid, h)
+            if lbl is None:
+                continue
+            k = 'V' + anat[1:]
+            lbl[lbl > 6] = 0
+            ll[f'{k}_visual_area'] = lbl
+        for anat in HCPImageCache._dorsal_raters:
+            lbl = HCPImageCache._get_vd_labels(anat, sid, h)
+            if lbl is None:
+                continue
+            k = 'D' + anat[1:]
+            lbl[lbl < 7] = 0
+            ll[f'{k}_visual_area'] = lbl
         lbls[h] = ll
     return sub.with_hemi(lh=sub.lh.with_prop(lbls['lh']),
                          rh=sub.rh.with_prop(lbls['rh']))

@@ -11,6 +11,7 @@ The `visual_autolabel.plot` package contains utilities for use in and with the
 from ._core import (
     add_inferred,
     add_prior,
+    add_wang2015,
     add_raterlabels,
     summarize_dist,
     plot_distbars,
@@ -20,6 +21,7 @@ from ._core import (
 __all__ = [
     "add_inferred",
     "add_prior",
+    "add_wang2015",
     "add_raterlabels",
     "summarize_dist",
     "plot_distbars",

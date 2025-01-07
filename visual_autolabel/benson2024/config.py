@@ -104,8 +104,33 @@ analysis_path = '/data/visual-autolabel/analysis'
 
 #-------------------------------------------------------------------------------
 # dwi_filename_pattern
-dwi_filename_pattern_init = os.environ.get('DWI_FILENAME_PATTERN')
+dwi_filename_pattern = os.environ.get(
+    'DWI_FILENAME_PATTERN',
+    (# We load from the directory /data/hcp/tracts/<subject_id>
+     '/data', 'hcp', 'tracts', '{subject}',
+     # The filename is like lh.VOF_normalized.mgz
+     '{hemisphere}.{tract_name}_normalized.mgz'))
 
+
+#-------------------------------------------------------------------------------
+# visual_area_label_key
+visual_area_label_key = {
+    'V1': 1,
+    'V2': 2,
+    'V3': 3,
+    'hV4': 4,
+    'VO1': 5,
+    'VO2': 6,
+    'V3a': 7,
+    'V3b': 8,
+    'IPS0': 9,
+    'LO1': 10}
+visual_area_label_names = tuple(
+    map(
+        lambda u: u[0],
+        sorted(
+            visual_area_label_key.items(),
+            key=lambda u: u[1])))
 
 # Delete extraneous imports.
 del np

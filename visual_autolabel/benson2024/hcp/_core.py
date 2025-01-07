@@ -118,6 +118,8 @@ input_properties = {
 }
 output_properties = {
     'area': vaonly_properties,
+    'vent': ('hV4', 'VO1', 'VO2'),
+    'dors': ('V3a', 'V3b', 'IPS0', 'LO1'),
     'ring': econly_properties,
     'sect': vaonly_properties + econly_properties,
 }
@@ -267,7 +269,7 @@ def dataset(inputs, outputs,
         inputs,
         outputs,
         features=features,
-        partition=(sids, []),
+        partition=part,
         cache_path=cache_path)
     return dsets['trn'] if partition is None else dsets
 def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
@@ -297,7 +299,7 @@ def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
         if (include_null or inp != 'null')
         if (include_sect or outp != 'sect')}
 def flatmaps(sid, datasets,
-             add_inferred=True, add_prior=True, add_raters=True,
+             add_inferred=True, add_prior=True, add_raters=True, add_wang=True,
              dataset_cache_path=Ellipsis,
              model_cache_path=Ellipsis):
     """Returns a nested lazy-map of all the requested evaluation flatmaps.
@@ -334,6 +336,9 @@ def flatmaps(sid, datasets,
     if add_prior:
         from ...plot import add_prior
         sub = add_prior(sub)
+    if add_wang:
+        from ...plot import add_wang2015
+        sub = add_wang2015(sub)
     if add_raters:
         from ...plot import add_raterlabels
         sub = add_raterlabels(sub)
@@ -361,18 +366,29 @@ def flatmaps(sid, datasets,
                 labelsets = {
                     'visual_area': slice(0,3),
                     'visual_ring': slice(3,8)}
+            elif outp == 'vent':
+                labelsets = {'visual_area': slice(0,3)}
+            elif outp == 'dors':
+                labelsets = {'visual_area': slice(0,4)}
+            elif isinstance(outp, tuple):
+                labelsets = {'visual_area': slice(0, len(outp))}
             else:
-                raise ValueError(f"invalid output: {output}")
-            mdl = unet(
-                inp, outp, 'model',
-                model_cache_path=model_cache_path)
-            labels = ds.predlabels(targ, mdl, view=view, labelsets=labelsets)
-            for (k,lbl) in labels.items():
-                ps[f"{inp}_{k}"] = lbl
+                raise ValueError(f"invalid output: {outp}")
+            try:
+                mdl = unet(
+                    inp, outp, 'model',
+                    model_cache_path=model_cache_path)
+                labels = ds.predlabels(
+                    targ, mdl, view=view, labelsets=labelsets)
+                for (k,lbl) in labels.items():
+                    ps[f"{inp}_{k}"] = lbl
+            except Exception:
+                pass
         fmaps.append(fmap.with_prop(ps))
     return tuple(fmaps)
 def all_flatmaps(datasets, sids=Ellipsis,
                  add_inferred=True, add_prior=True, add_raters=True,
+                 add_wang=True,
                  dataset_cache_path=Ellipsis,
                  model_cache_path=Ellipsis):
     """Generates a lazy-map of all evaluation flatmaps for all HCP subjects.
@@ -385,7 +401,8 @@ def all_flatmaps(datasets, sids=Ellipsis,
         {sid: ny.util.curry(
              flatmaps, sid, datasets,
              add_inferred=add_inferred, 
-             add_prior=add_prior, 
+             add_prior=add_prior,
+             add_wang=add_wang,
              add_raters=add_raters,
              dataset_cache_path=dataset_cache_path,
              model_cache_path=model_cache_path)

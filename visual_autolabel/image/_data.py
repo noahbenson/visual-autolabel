@@ -542,6 +542,7 @@ class ImageCache:
             im = self.load_image(filename)
             if im is not None:
                 return im.to(self._dtype())
+        print("_get_feature:", target_id, feature_name, filename)
         # The main task here is to call down to the static method, either in a
         # separate process or in this one.
         fn = self._generate_feature

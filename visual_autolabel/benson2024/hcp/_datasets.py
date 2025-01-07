@@ -133,6 +133,14 @@ class HCPImageCache(BilateralFlatmapImageCache):
         'SV3fov': LabelDiffFeature(
             'visual_area:3--visual_sector:19 20 21 22 23 24 25 26',
             'nearest'),
+        # Ventral and Dorsal visual area labels.
+        'hV4':  LabelFeature('visual_area:4', 'nearest'),
+        'VO1':  LabelFeature('visual_area:5', 'nearest'),
+        'VO2':  LabelFeature('visual_area:6', 'nearest'),
+        'V3a':  LabelFeature('visual_area:7', 'nearest'),
+        'V3b':  LabelFeature('visual_area:8', 'nearest'),
+        'IPS0': LabelFeature('visual_area:9', 'nearest'),
+        'LO1':  LabelFeature('visual_area:10', 'nearest'),
         # Eccentricity regions.
         'E0': LabelDiffFeature(
             'visual_area:1 2 3--visual_sector:2 3 4 5 7 8 9 10 11 12 13 14 15'
@@ -170,6 +178,50 @@ class HCPImageCache(BilateralFlatmapImageCache):
         rater = target['rater']
         subject = target['subject']
         return os.path.join(feature, f"{rater}_{subject}.pt")
+    _rater_tr = {
+        'Annie-lsc': 'A5',
+        'oadesiyan': 'A6',
+        'bogengsong': 'A7',
+        'JiyeongHa': 'A8',
+        'mominbashir': 'A9',
+        'qiutan6li': 'A10',
+        'BrendaQiu': 'A11',
+        'lindazelinzhao': 'A12',
+        'nourahboujaber': 'A13'}
+    _rater_rtr = {
+        'A5': 'Annie-lsc',
+        'A6': 'oadesiyan',
+        'A7': 'bogengsong',
+        'A8': 'JiyeongHa',
+        'A9': 'mominbashir',
+        'A10': 'qiutan6li',
+        'A11': 'BrendaQiu',
+        'A12': 'lindazelinzhao',
+        'A13': 'nourahboujaber'}
+    _ventral_raters = ('A7', 'A8', 'A11', 'A12', 'A13')
+    _dorsal_raters = ('A5', 'A6', 'A9', 'A10', 'A11')
+    @classmethod
+    def _get_vd_labels(cls, rater, sid, h,
+                       path='/data/crcns2021/results/proc/labels'):
+        from pathlib import Path
+        if rater not in cls._rater_rtr:
+            return None
+        rrater = cls._rater_rtr[rater]
+        path = Path(path) / rrater / str(sid)
+        vfl = path / f'{h}.ventral_label.mgz'
+        dfl = path / f'{h}.dorsal_label.mgz'
+        dat = []
+        for flnm in (vfl, dfl):
+            if flnm.is_file():
+                dat.append(ny.load(str(flnm)))
+        if len(dat) == 0:
+            return None
+        elif len(dat) == 1:
+            return dat[0]
+        r = dat[0]
+        ii = (r == 0)
+        r[ii] = dat[1][ii]
+        return r
     def make_flatmap(self, target, view=None):
         # We may have been given (rater, sid, h) or ((rater, sid), h):
         (rater, sid) = self.unpack_target(target)
@@ -184,10 +236,22 @@ class HCPImageCache(BilateralFlatmapImageCache):
         hem = hem.with_prop(midgray_x=x, midgray_y=y, midgray_z=z)
         if rater is not None and rater != 'mean':
             # Get the appropriate data from the dataset.
-            dat = ny.data['hcp_lines'].subject_labels[rater][sid][h]
+            if rater in ('A1', 'A2', 'A3', 'A4'):
+                dat = ny.data['hcp_lines'].subject_labels[rater][sid][h]
+                va = dat['visual_area']
+                vs = dat['visual_sector']
+            else:
+                va = np.zeros(hem.vertex_count, dtype=int)
+                vs = np.zeros(hem.vertex_count, dtype=int)
+            # We also need the ventral and dorsal labels.
+            extra_labels = self._get_vd_labels(rater, sid, h)
+            if extra_labels is not None:
+                va = np.array(va)
+                ii = (va == 0)
+                va[ii] = extra_labels[ii]
             hem = hem.with_prop(
-                visual_area=dat['visual_area'],
-                visual_sector=dat['visual_sector'])
+                visual_area=va,
+                visual_sector=vs)
         # Make the flatmap:
         fmap = ny.to_flatmap('occipital_pole', hem, radius=np.pi/2.25)
         fmap = fmap.with_meta(subject_id=sid, rater=rater, hemisphere=h)
