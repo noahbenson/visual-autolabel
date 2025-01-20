@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/_image.py
+# visual_autolabel/image/_model.py
 # Training / validation data based on images of cortex.
 
 
@@ -8,14 +8,15 @@
 # Dependencies
 
 import torch
+from torch import nn
 
-from ..util import convrelu
+from ..util import convrelu, convrelu3D
 
 
 #===============================================================================
 # Image-based CNN Model Code
 
-class UNet3D(torch.nn.Module):
+class UNet3D(nn.Module):
     """a U-Net with a ResNet18 backbone for learning visual area labels.
 
     The `UNet` class implements a ["U-Net"](https://arxiv.org/abs/1505.04597)
@@ -59,9 +60,8 @@ class UNet3D(torch.nn.Module):
     def __init__(self, feature_count, segment_count,
                  base_model='resnet18',
                  logits=True):
-        import torch.nn as nn
         # Make sure we can import the resnet3D library:
-        import volcnn.kenshohara_resnet as resnetlib
+        import .kenshohara_resnet as resnetlib
         # Initialize the super-class.
         super().__init__()
         # Store some basic attributes.
@@ -170,20 +170,8 @@ class UNet3D(torch.nn.Module):
             out = torch.sigmoid(out)
         return out
 
-# This is the class that needs to be updated:
-#  - Needs to start by running the 3D CNN on the subject.
-#  - Needs to take the output of the 3D CNN and project it to the cortical surface.
-#  - Needs to make images from the cortical surface.
-#  - Then needs to run the 2D CNN with these images included.
-#
-# Other notes:
-#  - The HybridUNet (below) is currently just the 2D CNN renamed.
-#  - We need to add 3 features from the 3D CNN when we run the 2D CNN
-class HybridUNet(torch.nn.Module):
-    """TODO: Make into a hybrid 2D/3D Unet.
-
-    Old 2D CNN documentation:
-    a U-Net with a ResNet18 backbone for learning visual area labels.
+class UNet2D(torch.nn.Module):
+    """A U-Net with a ResNet18 backbone for learning visual area labels.
 
     The `UNet` class implements a ["U-Net"](https://arxiv.org/abs/1505.04597)
     with a [ResNet-18](https://pytorch.org/hub/pytorch_vision_resnet/) bacbone.
@@ -233,7 +221,6 @@ class HybridUNet(torch.nn.Module):
         is in probabilities.
     """
     def __init__(self, feature_count, segment_count,
-                 feature_count_3D,
                  base_model='resnet18',
                  pretrained=False,
                  logits=True):
@@ -241,7 +228,7 @@ class HybridUNet(torch.nn.Module):
         # Initialize the super-class.
         super().__init__()
         # Store some basic attributes.
-        self.feature_count = feature_count + segment_count  # segment_count for 3D features
+        self.feature_count = feature_count
         self.segment_count = segment_count
         self.pretrained = pretrained
         self.logits = logits
@@ -300,26 +287,7 @@ class HybridUNet(torch.nn.Module):
         self.conv_original_size1 = convrelu(64, 64, 3, 1)
         self.conv_original_size2 = convrelu(64 + 128, 64, 3, 1)
         self.conv_last = nn.Conv2d(64, segment_count, 1)
-        # Add a 3D Unet:
-        self.unet3D = UNet3D(feature_count_3D, segment_count)
     def forward(self, input, transform_3D_to_2D=None):
-        # Let's assume for the moment:
-        # The transform_3D_to_2D argument is a function, and when given
-        # 3D PyTorch images (i.e., the output images from the UNet3D), it
-        # converts them into 2D input images for the HybridUNet.
-        # We'll use it like this:
-        # images_2d = transform_3D_to_2D(images_3d)
-
-        if transform_3D_to_2D is None:
-            # Hack to make things work until we write the tranform function:
-            transform_3D_to_2D = lambda x: torch.zeros((input.shape[0], input.shape[1], input.shape[2], x.shape[-1]), dtype=x.dtype)
-        # TODO:
-        #  - (later) write the transform function
-        #  - Have this CNN start by running the 3D UNet
-        #  - Then take the 3D Unet outputs and run them through the transform
-        #  - Then add the 2D features from the 3D CNN to the end of the `input` features.
-        #  - Run the forward function below as normal!
-        
         # Do the original size convolutions.
         x_original = self.conv_original_size0(input)
         x_original = self.conv_original_size1(x_original)
@@ -361,3 +329,51 @@ class HybridUNet(torch.nn.Module):
         if not self.logits:
             out = torch.sigmoid(out)
         return out
+
+# The Hybrid 2d/3d CNN:
+class HybridUNet(nn.Module):
+    """A hybrid 2D/3D UNet CNN.
+    """
+    def __init__(self,
+                 feature_count_3D, output_count_3D,
+                 feature_count_2D, segment_count,
+                 base_model='resnet18',
+                 logits=True)
+        self.unet3D = UNet3D(
+            feature_count_3D,
+            output_count_3D,
+            base_model=base_model,
+            logits=logits)
+        self.unet2D = UNet2D(
+            feature_count_2D + output_count_3D,
+            segment_count,
+            base_model=base_model,
+            logits=logits)
+    def forward(self, inputs):
+        # In the forward function, data always has a particular shape:
+        # shape is B x C x H x W [x D]
+        #  Where B is batch size (number of training examples beign given)
+        #  ...   C is number of image channels
+        #  ...   H is height
+        #  ...   W is width
+        #  ...   D is depth (for a 3D CNN; no D for a 2D CNN).
+        # For a hybrid CNN, we'll have the input data arrive as if it were 2D,
+        # but the first many channels are the 3D input data.
+        # So, if our 3D CNN requires images that are 64 x 64 x 64 x channels3D
+        #  but our 2D CNN requires images that are 128 x 256 x channels2D;
+        # For now, assume we can extract these from the inputs using a function:
+        (features2D, features3D) = self.extract_features(inputs)
+        # First, run the 3D CNN:
+        output3D = self.unet3D(inputs)
+        # Transform the 3D outputs into 2D images:
+        input2D = self.transform_3D_to_2D(output3D)
+        # Run the 2D CNN:
+        segments = self.unet2D(input2D)
+        return segments
+    def extract_features(self, inputs):
+        # TODO: extract 3D parts of the input and 2D parts of the input and
+        # return them as a tuple (feautres2D, features3D).
+        pass
+    def transform_3D_to_2D(self, data3D):
+        # TODO: transform from 3D Image into 2D Input images.
+        pass
