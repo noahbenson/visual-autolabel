@@ -267,7 +267,7 @@ class HybridUNet(torch.nn.Module):
             # Adjust the first convolution's number of input channels.
             c1 = base_model.conv1
             base_model.conv1 = nn.Conv2d(
-                feature_count, c1.out_channels,
+                self.feature_count, c1.out_channels,
                 kernel_size=c1.kernel_size, stride=c1.stride,
                 padding=c1.padding, bias=c1.bias)
         base_layers = list(base_model.children())
@@ -302,17 +302,19 @@ class HybridUNet(torch.nn.Module):
         self.conv_last = nn.Conv2d(64, segment_count, 1)
         # Add a 3D Unet:
         self.unet3D = UNet3D(feature_count_3D, segment_count)
-    def forward(self, input, transform_3D_to_2D=None):
+    def forward(self, input2D, input3D, transform_3D_to_2D=None):
         # Let's assume for the moment:
         # The transform_3D_to_2D argument is a function, and when given
         # 3D PyTorch images (i.e., the output images from the UNet3D), it
         # converts them into 2D input images for the HybridUNet.
         # We'll use it like this:
         # images_2d = transform_3D_to_2D(images_3d)
-
         if transform_3D_to_2D is None:
             # Hack to make things work until we write the tranform function:
-            transform_3D_to_2D = lambda x: torch.zeros((input.shape[0], input.shape[1], input.shape[2], x.shape[-1]), dtype=x.dtype)
+            transform_3D_to_2D = (
+                lambda x: torch.zeros(
+                    input2D.shape[:2] + x.shape[-1:],
+                    dtype=x.dtype)
         # TODO:
         #  - (later) write the transform function
         #  - Have this CNN start by running the 3D UNet
