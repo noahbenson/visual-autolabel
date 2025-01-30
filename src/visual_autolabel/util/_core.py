@@ -271,11 +271,11 @@ def convrelu(in_channels, out_channels,
                         padding=padding, bias=bias),
         torch.nn.ReLU(inplace=inplace))
 def convrelu3D(in_channels, out_channels,
-             kernel=3,
-             padding=None,
-             stride=1,
-             bias=True,
-             inplace=True):
+               kernel=3,
+               padding=None,
+               stride=1,
+               bias=True,
+               inplace=True):
     """Shortcut for creating a PyTorch 3D convolution followed by a ReLU.
 
     Parameters
