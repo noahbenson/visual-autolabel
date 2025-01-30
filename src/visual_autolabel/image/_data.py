@@ -329,12 +329,12 @@ class ImageCache:
     def plot_view(self, target, feature, axes, view):
         """Paints the given feature and view onto the given pyplot axes.
 
-        The `plot_view` or method must be overloaded by subclasses of the
-        `ImageCache` type that use views to manage multi-panel or multi-part
-        images. The method is always passed the target ID, the feature name of
-        the feature that is to be generated, the view for which is being
-        plotted, and a set of matplotlib axes onto which the view should be
-        drawn.
+        The `plot_view` or `fill_view` method must be overloaded by subclasses
+        of the `ImageCache` type that use views to manage multi-panel or
+        multi-part images. The method is always passed the target ID, the
+        feature name of the feature that is to be generated, the view for which
+        is being plotted, and a set of matplotlib axes onto which the view
+        should be drawn.
 
         If the `fill_view` or `fill_image` methods are overloaded and do not
         raise `NotImplementedError` exceptions, then they are used instead of
@@ -381,6 +381,10 @@ class ImageCache:
         matrix `im` according to the rectangle specification `(x0, y0, w, h)`.
         All the values in the rectangle specification must be between 0 and 1
         (i.e., they are specified in scaled image coordinates).
+
+        The optional argument `rcfirst` (default: True) specifies whether the
+        given image `im` stores its rows and columns as the first two dimensions
+        (True) or as the last two dimensions (False).
         """
         if rcfirst:
             (rii, cii) = ImageCache.view_slices(np.shape(im)[:2], viewrect)
@@ -482,8 +486,8 @@ class ImageCache:
                           return_image=False):
         """Private static method to actually generate a feature."""
         # Fairly straighforward approach here. Generate the figure, save it as
-        # an image to the path filename. We'll put the image-data into this
-        # tensor:
+        # an image to the {cache_path} / {filename}. We'll put the image-data
+        # into this tensor (im):
         im = torch.zeros(self.options.image_size, dtype=self._dtype())
         # First try to make the image directly, without using pyplot.
         try:
@@ -502,7 +506,10 @@ class ImageCache:
             (dirname, filename) = os.path.split(path)
             if not os.path.exists(dirname):
                 if self.options.mkdirs:
-                    os.makedirs(dirname, mode=self.options.mkdir_mode)
+                    os.makedirs(
+                        dirname,
+                        mode=self.options.mkdir_mode,
+                        exist_ok=True)
                 else:
                     raise RuntimeError(f"no cache dir for feature: {dirname}")
             torch.save(im, path)
