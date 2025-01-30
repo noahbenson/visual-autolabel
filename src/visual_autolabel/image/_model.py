@@ -349,31 +349,53 @@ class HybridUNet(nn.Module):
             segment_count,
             base_model=base_model,
             logits=logits)
-    def forward(self, inputs):
-        # In the forward function, data always has a particular shape:
+    def forward(self, inputs3D, inputs2D, tx_3D_to_2D):
+        # In the forward function, input data always has a particular shape:
         # shape is B x C x H x W [x D]
         #  Where B is batch size (number of training examples beign given)
         #  ...   C is number of image channels
         #  ...   H is height
         #  ...   W is width
         #  ...   D is depth (for a 3D CNN; no D for a 2D CNN).
-        # For a hybrid CNN, we'll have the input data arrive as if it were 2D,
-        # but the first many channels are the 3D input data.
-        # So, if our 3D CNN requires images that are 64 x 64 x 64 x channels3D
-        #  but our 2D CNN requires images that are 128 x 256 x channels2D;
-        # For now, assume we can extract these from the inputs using a function:
-        (features2D, features3D) = self.extract_features(inputs)
+
         # First, run the 3D CNN:
-        output3D = self.unet3D(inputs)
+        output3D = self.unet3D(inputs3D)
         # Transform the 3D outputs into 2D images:
-        input2D = self.transform_3D_to_2D(output3D)
+        flat_output3D = self.transform_3D_to_2D(output3D, tx_3D_to_2D, shape_2D)
+        # Combine the flattened 3D data with the 2D inputs.
+        inputs_combined_2D = torch.cat(
+            [inputs2D, flat_output3D],
+            dim=1)
         # Run the 2D CNN:
-        segments = self.unet2D(input2D)
+        segments = self.unet2D(inputs_combined_2D)
         return segments
-    def extract_features(self, inputs):
-        # TODO: extract 3D parts of the input and 2D parts of the input and
-        # return them as a tuple (feautres2D, features3D).
-        pass
-    def transform_3D_to_2D(self, data3D):
-        # TODO: transform from 3D Image into 2D Input images.
-        pass
+    def transform_3D_to_2D(self, data3D, tx_3D_to_2D, shape_2D):
+        # tx_3D_to_2D needs to be a giant sparse matrix; the shape of the matrix
+        #   should be (N x M) where N is the number of cells in data3D and M is the
+        #   number of pixels in the output image (shape_2D[0] * shape_2D[1]).
+        # data3D has shape (B, C, Rs, Cs, Ss) where B is batches and C is channels;
+        #   we want to convert it to (B, C, rows2D, columns2D).
+        # shape_2D is the (rows2D, columns2D) in the 2D images we are producing and
+        #   so M = shape_2D[0] * shape_2D[1]
+        # To make the output 2D image, we iterate over the channels (dim 1) of the
+        #   3D data.
+        channels = []
+        for ii in range(data3D.shape[1]):
+            # Extract one channel:
+            channel3D = data3D[:,ii]
+            # channel3D has shape (B, Rs, Cs, Ss)
+            data3D_flat = torch.reshape(
+                channel3D,
+                # single channel has dims B x Rs x Cs x Ss;
+                # we flatten to B x N (N = Rs * Cs * Ss)
+                (data3D.shape[0], -1))
+            # data3D_flat has shape (B, N) where N = Rs*Cs*Ss
+            # data3D_flat.T has shape (N, B) which matches tx_3D_to_2D matrix.
+            data2D_flat = tx_3D_to_2D @ data3D_flat.T
+            # data2D_flat has shape (M, B) where M is the number of 2D pixels.
+            data2D_image = torch.reshape(data2D_flat.T, (-1,1) + shape_2D)
+            # data2D_image has shape (B, 1, Rs2D, Cs2D)
+            channels.append(data2D_image)
+        # Now we have a list of data, one entry per channel of the 2D output.
+        im = torch.cat(channels, dim=1)
+        return im
