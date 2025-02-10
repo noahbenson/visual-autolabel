@@ -25,7 +25,7 @@ from ....image import (
 
 def main(args, /, exit_on_error=False):
     """Executes the training used by Benson et al. (2024).
-    
+
     This function allows you to run the main function for the command line:
     ```bash
     $ python -m visual_autolabel.benson2024.hcp.train \
@@ -36,7 +36,7 @@ def main(args, /, exit_on_error=False):
     """
     # Commandline Arguments.....................................................
     # There must be three of them.
-    if len(args) != 3:
+    if len(args) not in {3,4}:
         if exit_on_error:
             print(
                 "SYNTAX: python -m visual_autolabel.benson2024.hcp.train \\\n"
@@ -44,10 +44,13 @@ def main(args, /, exit_on_error=False):
                 file=sys.stderr)
             sys.exit(1)
         else:
-            raise ValueError(f"3 arguments are required; received {len(args)}")
+            raise ValueError(f"3-4 arguments are required; received {len(args)}")
     model_key = args[0]
     opts_filename = os.path.expanduser(os.path.expandvars(args[1]))
     plan_filename = os.path.expanduser(os.path.expandvars(args[2]))
+    if len(args) == 4:
+        hcp_restricted_path=os.path.expanduser(os.path.expandvars(args[3]))
+
     try:
         with open(opts_filename, 'rt') as fl:
             opts = json.load(fl)
@@ -68,7 +71,7 @@ def main(args, /, exit_on_error=False):
             sys.exit(2)
         else:
             raise
-            
+
     # Options Parsing...........................................................
     inputs = opts.pop('inputs', None)
     if inputs is None:
@@ -88,19 +91,19 @@ def main(args, /, exit_on_error=False):
                 inputs = literal_eval(inputs)
             except ValueError:
                 pass
-    
+
     outputs = opts.pop('prediction', 'area')
     if isinstance(outputs, str):
         outputs = output_properties[outputs]
     # Check if the partition is set to use the default HCP partition.
     if opts.get('partition') == 'default':
         from .._core import partition
-        opts['partition'] = partition()
+        opts['partition'] = partition(hcp_restricted_path=hcp_restricted_path)
 
 
     #===========================================================================
     # Training
-    
+
     # Make an auto-logger with a log-file.
     mcp = opts.get('model_cache_path')
     if mcp is not None:
@@ -110,7 +113,7 @@ def main(args, /, exit_on_error=False):
     if 'model_key' in opts:
         if model_key == opts['model_key']:
             del opts['model_key']
-        
+
     # Train the model.
     train_until(
         inputs, outputs, plan,
