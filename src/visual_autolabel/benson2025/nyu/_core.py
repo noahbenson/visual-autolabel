@@ -74,7 +74,7 @@ def partition():
 def dataset(inputs, outputs='area',
             partition=None, sids=Ellipsis, cache_path=Ellipsis):
     """Returns one of the NYU datasets used by Benson et al. (2024).
-    
+
     The dataset returned is specified by the first two parameters, `inputs`
     which should be the names of input variables (`'anat'` or `'func'`). For
     example, `dataset('anat')` will return a dataset that accepts as
@@ -118,7 +118,7 @@ def dataset(inputs, outputs='area',
 def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
                  partition=None, include_null=False, include_sect=False):
     """Returns a dictionary of all NYU datasets used by Benson et al. (2024).
-    
+
     The dictionary returned uses tuples of `(inputs, outputs)` as keys, for
     example the key `('anat', 'area')` is used for a dataset built for a CNN
     that accepts anatomical data as input and predicts visual area boundaries.
@@ -146,13 +146,13 @@ def flatmaps(sid, datasets,
              dataset_cache_path=Ellipsis,
              model_cache_path=Ellipsis):
     """Returns a nested lazy-map of all the requested evaluation flatmaps.
-    
+
     This function returns flatmaps that are ready to be used for evaluation of
     the CNN results in this project. The return value is a map whose keys are
     subject IDs and whose values are themselves lazy-maps. The nested lazy-maps
-    each have the keys `'lh'` and `'rh'` and values that are the associated 
+    each have the keys `'lh'` and `'rh'` and values that are the associated
     flatmaps.
-    
+
     The flatmaps have properties representing the gold-standard and predicted
     boundaries/labels. These properties are added for all datasets given in the
     `datasets` option. If this option is `None` (the default), then all datasets
@@ -177,7 +177,7 @@ def flatmaps(sid, datasets,
         from ...plot import add_prior
         sub = add_prior(sub)
     targ = next(
-        target 
+        target
         for target in ds0.targets
         if target['subject'] == sid)
     # We now make an LH and an RH dataset.
@@ -211,7 +211,7 @@ def all_flatmaps(datasets, sids=Ellipsis,
                  dataset_cache_path=Ellipsis,
                  model_cache_path=Ellipsis):
     """Generates a lazy-map of all evaluation flatmaps for all HCP subjects.
-    
+
     See also `flatmaps`."""
     import pimms
     if sids is Ellipsis:
@@ -219,7 +219,7 @@ def all_flatmaps(datasets, sids=Ellipsis,
     return pimms.lmap(
         {sid: ny.util.curry(
              flatmaps, sid, datasets,
-             add_prior=add_prior, 
+             add_prior=add_prior,
              dataset_cache_path=dataset_cache_path,
              model_cache_path=model_cache_path)
          for sid in sids})

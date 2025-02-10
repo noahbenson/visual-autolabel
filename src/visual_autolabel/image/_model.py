@@ -21,7 +21,7 @@ class UNet(torch.nn.Module):
     The `UNet` class implements a ["U-Net"](https://arxiv.org/abs/1505.04597)
     with a [ResNet-18](https://pytorch.org/hub/pytorch_vision_resnet/) bacbone.
     The class inherits from `torch.nn.Module`.
-    
+
     The original implementation of this class was by Shaoling Chen
     (sc6995@nyu.edu), and additional modifications have been made by Noah C.
     Benson (nben@uw.edu).
@@ -39,7 +39,7 @@ class UNet(torch.nn.Module):
         RV2, RV3).
     base_model : model name or tuple, optional
         The name of the model that is to be used as the base/backbone of the
-        UNet. The default is `'resnet18'`, but 
+        UNet. The default is `'resnet18'`, but
     pretrained : boolean, optional
         Whether to use a pretrained base model for the backbone (`True`) or not
         (`False`). The default is `False`.
@@ -94,7 +94,7 @@ class UNet(torch.nn.Module):
         # does it get caught up in PyTorch's Module data when we do?
         #self.base_model = resnet18(pretrained=pretrained)
         # Because the input size may not be 3 and the output size may not be 3,
-        # we want to add an additional 
+        # we want to add an additional
         if feature_count != 3:
             # Adjust the first convolution's number of input channels.
             c1 = base_model.conv1
@@ -106,17 +106,17 @@ class UNet(torch.nn.Module):
         #self.base_layers = base_layers
         # Make the U-Net layers out of the base-layers.
         # size = (N, 64, H/2, W/2)
-        self.layer0 = nn.Sequential(*base_layers[:3]) 
+        self.layer0 = nn.Sequential(*base_layers[:3])
         self.layer0_1x1 = convrelu(64, 64, 1, 0)
         # size = (N, 64, H/4, W/4)
         self.layer1 = nn.Sequential(*base_layers[3:5])
         self.layer1_1x1 = convrelu(64, 64, 1, 0)
-        # size = (N, 128, H/8, W/8)        
+        # size = (N, 128, H/8, W/8)
         self.layer2 = base_layers[5]
-        self.layer2_1x1 = convrelu(128, 128, 1, 0)  
+        self.layer2_1x1 = convrelu(128, 128, 1, 0)
         # size = (N, 256, H/16, W/16)
-        self.layer3 = base_layers[6]  
-        self.layer3_1x1 = convrelu(256, 256, 1, 0)  
+        self.layer3 = base_layers[6]
+        self.layer3_1x1 = convrelu(256, 256, 1, 0)
         # size = (N, 512, H/32, W/32)
         self.layer4 = base_layers[7]
         self.layer4_1x1 = convrelu(512, 512, 1, 0)
@@ -141,7 +141,7 @@ class UNet(torch.nn.Module):
         layer0 = self.layer0(input)
         layer1 = self.layer1(layer0)
         layer2 = self.layer2(layer1)
-        layer3 = self.layer3(layer2)        
+        layer3 = self.layer3(layer2)
         layer4 = self.layer4(layer3)
         # Now, we start the up-swing; each step must upsample the image.
         layer4 = self.layer4_1x1(layer4)
@@ -168,7 +168,7 @@ class UNet(torch.nn.Module):
         # Up-swing Step 5
         x = self.upsample(x)
         x = torch.cat([x, x_original], dim=1)
-        x = self.conv_original_size2(x)        
+        x = self.conv_original_size2(x)
         # And the final convolution.
         out = self.conv_last(x)
         if not self.logits:

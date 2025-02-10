@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # This script is to be run by the Azure nodes that are performing the
-# grid-search 
+# grid-search
 
 #===============================================================================
 # Configuration

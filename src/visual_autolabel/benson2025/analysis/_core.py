@@ -62,10 +62,10 @@ def analfile(analysis_path, *args, mkdirs=False, mkdir_mode=0o775):
 
 def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None):
     """Score the given hemisphere or subject and return a DataFrame summary.
-    
+
     The Dice-Sørensen coefficient is used to score similarity between visual
     areas predicted by one method and those predicted by another. Methods
-    are found by looking at the properties of the (subject or hemisphere) 
+    are found by looking at the properties of the (subject or hemisphere)
     argument; all properties that end with the given suffix are considered to be
     prediced by separate methods, so `'A1_visual_area'` and `'func_visual_area'`
     are considered the methods `'A1'` and `'func'` for `suffix='_visual_area'`.
@@ -87,7 +87,7 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None):
         `dice_loss` function for more information. The default is 0.
     pair_tags : 'hcp', 'nyu', or None, optional
         Instructions on how to fill in the `'tag'` column of the returned
-        dataframe. If `None` is given, then no tag column is generated. If 
+        dataframe. If `None` is given, then no tag column is generated. If
         either `'hcp'` or `'nyu'` is given, then tags appropriate to those
         datasets are generated. Tags typically are applied to comparisons
         against the gold-standard data, signaling which comparisons are likely
@@ -206,10 +206,10 @@ def scores(dataset, sid,
            mkdir_mode=0o775,
            fork=True):
     """Returns the scores dataframe for a single subject from a dataset.
-    
+
     The Dice-Sørensen coefficient is used to score similarity between visual
     areas predicted by one method and those predicted by another. Methods
-    are found by looking at the properties of the (subject or hemisphere) 
+    are found by looking at the properties of the (subject or hemisphere)
     argument; all properties that end with the given suffix are considered to be
     prediced by separate methods, so `'A1_visual_area'` and `'func_visual_area'`
     are considered the methods `'A1'` and `'func'` for `suffix='_visual_area'`.
@@ -317,7 +317,7 @@ def all_scores(dataset='all',
                mkdir_mode=0o775,
                fork=True):
     """Returns a dataframe of all model comparisons across all subjects.
-    
+
     This function loads (or calculates) then returns the requested dataframe of
     dice scores for all models compared across all subjects from the dataset of
     Benson et al. (2024).
@@ -392,7 +392,7 @@ def all_scores(dataset='all',
     if filename and (overwrite or not filename.is_file()):
         df.to_csv(filename, index=False)
     return df
-    
+
 
 #-------------------------------------------------------------------------------
 # Loading Model Data
@@ -408,7 +408,7 @@ def _to_model_cache_pseudo_path(model_cache_path):
     return model_cache_path
 def unet(inputs, outputs, part='model', model_cache_path=None):
     """Loads a UNet from the Benson, Song, and Winawer (2024) dataset.
-    
+
     Parameters
     ----------
     inputs : str

@@ -30,7 +30,7 @@ from ...plot import (
 # for loading the feature from a file.
 class DWIFeature(FlatmapFeature):
     """Flatmap features loaded from DWI-based surface data files.
-    
+
     This class provides instructions to the `visual_autolabel` library on how to
     load diffusion-weighted imaging data for use in training PyTorch models. The
     class can be configured by setting the static field `filename_pattern`. This
@@ -45,7 +45,7 @@ class DWIFeature(FlatmapFeature):
     @classmethod
     def filename_pattern(self):
         """Returns the format pattern for the DWI filenames.
-        
+
         By default, this returns the value found in the environment variable
         `DWI_FILENAME_PATTERN`. It can be changed by changing the value of
         `visual_autolabel.benson2025.config.dwi_filename_pattern`.
@@ -193,7 +193,7 @@ def partition(cluster_relatives=True, hcp_restricted_path=None):
         sbs = rsp['nontwin_siblings']
         relatives = np.vstack([mzs, dzs, sbs])
         ii = np.isin(relatives[:,0], sids) & np.isin(relatives[:,1], sids)
-        relatives = relatives[ii, :] 
+        relatives = relatives[ii, :]
         others = np.setdiff1d(sids, np.unique(relatives))
         # Now select from these lists.
         (rii, oii) = partition.cluster_trn_ii
@@ -232,7 +232,7 @@ partition.cluster_trn_ii = (
 def dataset(inputs, outputs,
             partition=None, sids=Ellipsis, cache_path=Ellipsis):
     """Returns one of the HCP datasets used by Benson et al. (2024).
-    
+
     The dataset returned is specified by the first two parameters, `inputs` and
     `outputs`, which should be names of input and output variables. For example,
     `hcp_dataset('anat', 'area')` will return a dataset that accepts as input
@@ -275,7 +275,7 @@ def dataset(inputs, outputs,
 def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
                  partition=None, include_null=False, include_sect=False):
     """Returns a dictionary of all HCP datasets used by Benson et al. (2024).
-    
+
     The dictionary returned uses tuples of `(inputs, outputs)` as keys, for
     example the key `('anat', 'area')` is used for a dataset built for a CNN
     that accepts anatomical data as input and predicts visual area boundaries.
@@ -303,13 +303,13 @@ def flatmaps(sid, datasets,
              dataset_cache_path=Ellipsis,
              model_cache_path=Ellipsis):
     """Returns a nested lazy-map of all the requested evaluation flatmaps.
-    
+
     This function returns flatmaps that are ready to be used for evaluation of
     the CNN results in this project. The return value is a map whose keys are
     subject IDs and whose values are themselves lazy-maps. The nested lazy-maps
-    each have the keys `'lh'` and `'rh'` and values that are the associated 
+    each have the keys `'lh'` and `'rh'` and values that are the associated
     flatmaps.
-    
+
     The flatmaps have properties representing the gold-standard and predicted
     boundaries/labels. These properties are added for all datasets given in the
     `datasets` option. If this option is `None` (the default), then all datasets
@@ -343,7 +343,7 @@ def flatmaps(sid, datasets,
         from ...plot import add_raterlabels
         sub = add_raterlabels(sub)
     targ = next(
-        target 
+        target
         for target in ds0.targets
         if target['subject'] == sid)
     # We now make an LH and an RH dataset.
@@ -392,7 +392,7 @@ def all_flatmaps(datasets, sids=Ellipsis,
                  dataset_cache_path=Ellipsis,
                  model_cache_path=Ellipsis):
     """Generates a lazy-map of all evaluation flatmaps for all HCP subjects.
-    
+
     See also `hcp_flatmaps`."""
     import pimms
     if sids is Ellipsis:
@@ -400,7 +400,7 @@ def all_flatmaps(datasets, sids=Ellipsis,
     return pimms.lmap(
         {sid: ny.util.curry(
              flatmaps, sid, datasets,
-             add_inferred=add_inferred, 
+             add_inferred=add_inferred,
              add_prior=add_prior,
              add_wang=add_wang,
              add_raters=add_raters,

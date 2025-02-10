@@ -50,10 +50,10 @@ def sin_step(t, width=1, min=0, max=1, center=0):
     '''A sine step function whose derivative is 0 outside of a finite range.
 
     `sin_step(t)` returns a sine-based step such that:
-      * for `t < -w0`, `sin_step(t) = 0`; 
+      * for `t < -w0`, `sin_step(t) = 0`;
       * for `t > w0`, `sin_step(t) = 1`;
       * otherwise `sin_step(t) = 1/2 (1 + sin(pi/2 w0 t))`.
-    
+
     `sin_step(t, width)` uses the given width; equivalent to
     `sin_step(t/width)`.
 
@@ -62,13 +62,13 @@ def sin_step(t, width=1, min=0, max=1, center=0):
 
     `sin_step(t, width, min, max, center)` centers the distribution at the given
     center value.
-      
+
     The value `w0` is based on the value `s = 0.682689`: approximately the
     fraction of the normal distribution within 1 standard deviation. The actual
     value of `w0` is `2 * arcsin(s) / pi`; this particular value aligns the
     `sin_step` with the `normal_step` in that it ensures that ~68% of the
     distribution for which `sin_step` is the CDF is within `-1` to `+1`.
-    
+
     The `sin_well` is analogous to the `sin_step`; though the two are not
     actually representative of the same distribution, as is the case with other
     `_well` and `_step` functions.
@@ -92,13 +92,13 @@ def cauchy_step(t, width=1, min=0, max=1, center=0):
 
     `cauchy_step(t, width, min, max)` use the given min and max values;
     equivalent to `cauchy_step(t, width) * (max - min) + min`.
-      
+
     The value `w0` is based on the value `s = 0.682689`: approximately the fraction
     of the normal distribution within 1 standard deviation. The actual value of
     `w0` is `tan(pi/2 s)`; this particular value aligns the `cachy_step` with the
     `normal_step` in that it ensures that ~68% of the distribution for which
     `cauchy_step` is the CDF is within `-1` to `+1`.
-    
+
     The `cauchy_well` is related to the `cauchy_step` in that the well uses the
     CDF of the Cauchy distribution while the step uses the PDF.
     '''
@@ -112,19 +112,19 @@ def normal_step(t, width=1, min=0, max=1, center=0):
     '''A step function based on the CDF of the normal distribution.
 
     `normal_step(t)` returns `(1 + erf(t/w0))/2`.
-    
+
     `normal_step(t, width)` uses the given width parameter; equivalent to
     `normal_step(t/width)`.
 
-    `normal_step(t, width, min, max)` use the given min and max values, 
+    `normal_step(t, width, min, max)` use the given min and max values,
     equivalent to `normal_step(t, width) * (max - min) + min`.
-    
+
     The value `w0` is based on the value `s = 0.682689`: approximately the fraction
     of the normal distribution within 1 standard deviation. The actual value of
     `w0` is `1/sqrt(2)`; this particular value ensures that 68% of the distribution
     for which normal_step is the CDF (i.e., a normal distribution) is within `-1` to
     `+1`.
-    
+
     The `normal_step` is related to the `normal_well` in that they are composed
     using the CDF and the PDF of the normal distribution, respectively..
     '''
@@ -143,13 +143,13 @@ def logistic_step(t, width=1, min=0, max=1, center=0):
 
     `logistic_step(t, width, min, max)` use the given min and max values;
     equivalent to `logistic_step(t, width) * (max - min) + min`.
-    
+
     The value `w0` is based on the value `s = 0.682689`: approximately the
     fraction of the normal distribution within 1 standard deviation. The actual
     value of `w0` is `log(-(s+1)/(s-1))`; this particular value aligns the
     `logistic_step` with the `normal_step` in that it ensures that ~68% of the
     distribution for which `logistic_step` is the CDF is within `-1` to `+1`.
-    
+
     The `logistic_step` is related to the logistic_well in that they are
     composed of the CDF and PDF of the logistic distribution, respectively.
     '''
@@ -177,13 +177,13 @@ def sin_well(t, width=1, min=0, max=1, center=0):
 
     `sin_well(t, width, min, max)` is equivalent to `min + (max - min) *
     sin_well(t, width)`.
-       
+
     The value `w0` is chosen to make the sine-well approximately similar to a
     normal (Gassian) well in that the half-maximum point of both wells will be
     at the value `sqrt(log(4))`, which is where the half-way point occurs for a
     normal distribution. For a `sin_well`, this value of `w0` is `1 / (2
     sqrt(log(4)))`.
-       
+
     `sin_well(t)` is equivalent to
     `sin_well(t, width=1, min=0, max=1, center=0)`.
     '''
@@ -218,13 +218,13 @@ def cauchy_well(t, width=1, min=0, max=1, center=0):
 
     `cauchy_well(t, width, min, max)` is equivalent to
     `cauchy_well(t, width) * (max - min) + min`.
-      
+
     The value `w0` is chosen to make the cauchy-well approximately similar to a
     normal (Gaussian) well in that the half-maximum point of both wells will be
     at the value `log(sqrt(4))`, which is where the half-way point occurs for a
     normal distribution. For a `cauchy_well`, this value of `w0` is `1 /
     log(sqrt(4))`.
-       
+
     `cauchy_well(t)` is equivalent to
     `cauchy_well(t, width=1, min=0, max=1, center=0)`.
     '''
@@ -243,13 +243,13 @@ def logistic_well(t, width=1, min=0, max=1, center=0):
 
     `logistic_well(t, width, min, max)` is equivalent to
     `logistic_well(t, width) * (max - min) + min`.
-      
+
     The value `w0` is chosen to make the logistic-well approximately similar to
     a normal (Gaussian) well in that the half-maximum point of both wells will
     be at the value `log(sqrt(4))`, which is where the half-way point occurs for
     a normal distribution. For a `logistic_well`, this value of `w0` is
     `log(3 + 2 sqrt(2)) / (2 log(sqt(4)))`.
-       
+
     `logistic_well(t)` is equivalent to
     `logistic_well(t, width=1, min=0, max=1, center=0)`.
     '''

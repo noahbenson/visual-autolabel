@@ -39,7 +39,7 @@ def calc_visual_area(data, eccmin=0, eccmax=7):
     return are
 def load_inferred(sid, h, path=None, prefix=None):
     """Loads the Bayesian inferred maps for an HCP subject.
-    
+
     This function will load the maps from the given path if it is
     provided, but if not it will load them from the visual
     performance fields OSF database.
@@ -64,7 +64,7 @@ def load_inferred(sid, h, path=None, prefix=None):
     return r
 def add_inferred(sub, path=None, prefix='inf_'):
     """Given an HCP subject, returns a copy with inferred maps.
-    
+
     This function loads the inferred maps for the subject and
     adds them to the left and right hemispheres, then returns
     the subject with those added maps.
@@ -82,7 +82,7 @@ def add_inferred(sub, path=None, prefix='inf_'):
                          rh=sub.rh.with_prop(rhdat))
 def add_prior(sub, prefix='prior_'):
     """Given a subject, adds the retinotopic prior and returns it.
-    
+
     This function calculates the retinotopic prior for the subejct,
     adds the prior maps to the subject's hemispheres, and returns
     the new subject.
@@ -286,7 +286,7 @@ def plot_distbars(x, y,
     midpoint : 'mean' | 'median' | real | None | percentile str, optional
         The value at which to plot the midpoint. This may be an explicit real
         number, `None` to indicate that no dot should be plotted, `'mean'` or
-        `'median'` for the mean or median of `ys`, or a percentile such as 
+        `'median'` for the mean or median of `ys`, or a percentile such as
         `'25%'` to indicate an explicit percentile. The default is `'mean'`.
     extent : 'std' | 'ste' | 'iqr' | real | None | percentile str, optional
         The length that the bars should extend from the midpoint. This may be
@@ -393,11 +393,11 @@ def plot_prediction(dataset, k, model,
                     channels=(0,1,4,5),
                     round_labels=True):
     """Plots the data, true label, and predicted label (by model) of a dataset.
-    
+
     `plot_prediction(dataset, k, model)` creates a `matplotlib` figure for
     `dataset[k]` (i.e., the `k`th subject/image in `dataset`). The `axes` are
     always returned.
-    
+
     Parameters
     ----------
     dataset : HCPVisualDataset

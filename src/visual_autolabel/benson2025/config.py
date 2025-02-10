@@ -22,7 +22,7 @@ hcp_sids : numpy array of ints
        ...     if ('mean',sid,'rh') not in ny.data['hcp_lines'].exclusions])
 nyu_sids : numpy array of strs
     The subject-IDs that we use as a secondary dataset to assess
-    generalizability.  These were all publicly available subjects from the 
+    generalizability.  These were all publicly available subjects from the
     NYU Retinotopy Dataset (Himmelberg et al., 2021) at the time that the paper
     associated with this library was being prepared.
 dataset_cache_path : path-like

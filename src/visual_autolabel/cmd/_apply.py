@@ -38,7 +38,7 @@ class NeuropythySubjectImageCache(BilateralFlatmapImageCache):
     convenient way to make the machinery work and not a typical use of the
     ImageCache class.
     """
-    
+
     def __init__(self, subject):
         # We want to initialize using the parameters that were used by Benson,
         # Song, et al. (2025) in order to make images that are compatible with
@@ -140,5 +140,5 @@ def apply_benson2025(subject, outputs):
         hlbl[fmap.labels] = fmlbl
         lbls.append(hlbl)
     return tuple(lbls)
-    
-    
+
+

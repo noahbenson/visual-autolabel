@@ -23,9 +23,9 @@ positive x-axis) but has been rescaled such that +π represents π+`ui` and
 -π represnts -π-`li`.
 
 $$
-\gamma(\mathbf{\theta_r}; \mathbf{hva}, \mathbf{vma}) = 
-   1 + \frac{1}{2}\left(\mathbf{hva} \cos(2 \mathbf{\theta_r}) 
-     - \mathbf{vma} \, \hbox{sgn}(\sin(\mathbf{\theta_r})) 
+\gamma(\mathbf{\theta_r}; \mathbf{hva}, \mathbf{vma}) =
+   1 + \frac{1}{2}\left(\mathbf{hva} \cos(2 \mathbf{\theta_r})
+     - \mathbf{vma} \, \hbox{sgn}(\sin(\mathbf{\theta_r}))
        \sin(\mathbf{\theta_r})^2 \right)
 $$
 
@@ -34,14 +34,14 @@ magnification in terms of corrected polar angle and eccentricity:
 
 $$
 m(\mathbf{\theta_r}, \mathbf{\rho}; c_1, c_2, \hbox{hva}, \hbox{vma}) =
-   \gamma(\mathbf{\theta_r}; \hbox{hva}, \hbox{vma}) 
+   \gamma(\mathbf{\theta_r}; \hbox{hva}, \hbox{vma})
    \left( \frac{c_1}{c_2 + \mathbf{\rho}} \right)^2
 $$
 
 The integral of this equation over half of the visual field (i.e., the area of
 the visual area) out to $M$ degrees of is:
 
-$$ \hat{a}(M) = \int_{\theta_r=-\pi/2}^{\theta_r=pi/2} 
+$$ \hat{a}(M) = \int_{\theta_r=-\pi/2}^{\theta_r=pi/2}
       \int_{\rho=0}^{\rho=M} \rho \, m(\theta_r, \rho) \, d\rho\,d\theta_r $$
 $$ \hat{a}(M) = c_1^2 \pi \left(\log\left(\frac{c_2 + M}{c_2}\right)
       - \frac{M}{c_2 + M}\right) $$
@@ -92,7 +92,7 @@ Gibaldi2021_lower_ipsi = 0.17
 
 def cmmdl_angle_multiplier(theta,
                            ui=Gibaldi2021_upper_ipsi,
-                           li=Gibaldi2021_lower_ipsi, 
+                           li=Gibaldi2021_lower_ipsi,
                            hva=Benson2021_HVA,
                            vma=Benson2021_VMA):
     '''Returns a multiplier for the cortical magnification based polar angle.
@@ -143,7 +143,7 @@ def cmmdl_angle_multiplier(theta,
     ulpart = vma * sign(thsin) * thsin**2
     return 1.0 + 0.5*(hvpart - ulpart)
 def cmmdl_hhcmag(eccen,
-                 c1=HH1991_c1, 
+                 c1=HH1991_c1,
                  c2=HH1991_c2):
     '''Returns the Horton & Hoyt prediction of linear cortical magnification.
 
@@ -171,7 +171,7 @@ def cmmdl_hhcmag(eccen,
     '''
     return c1 / (c2 + eccen)
 def cmmdl_hhcmag2(eccen,
-                 c1=HH1991_c1, 
+                 c1=HH1991_c1,
                  c2=HH1991_c2):
     '''Returns the Horton & Hoyt prediction of areal cortical magnification.
 
@@ -199,10 +199,10 @@ def cmmdl_hhcmag2(eccen,
     '''
     return cmmdl_hhcmag(eccen)**2
 def cmmdl_cmag2(theta, eccen,
-                c1=HH1991_c1, 
+                c1=HH1991_c1,
                 c2=HH1991_c2,
                 ui=Gibaldi2021_upper_ipsi,
-                li=Gibaldi2021_lower_ipsi, 
+                li=Gibaldi2021_lower_ipsi,
                 hva=Benson2021_HVA,
                 vma=Benson2021_VMA):
     '''Returns the areal cortical magnification of a point in the visual field.

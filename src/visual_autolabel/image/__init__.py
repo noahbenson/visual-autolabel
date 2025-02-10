@@ -18,7 +18,7 @@ from ._data import (
 from ._model import (
     UNet
 )
-                    
+
 __all__ = [
     'ImageCache',
     'FlatmapFeature',

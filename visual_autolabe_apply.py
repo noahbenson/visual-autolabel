@@ -1,5 +1,5 @@
 class GeneralImageCache(BilateralFlatmapImageCache):
-    
+
     def __init__(self, dataset_path, subject_list, hemis='lr', image_size=Ellipsis, cache_path=None, overwrite=False, mkdirs=True, mkdir_mode=0o775, multiproc=True, timeout=None, dtype='float32', memcache=True, normalization=None, features=None, flatmap_cache=True):
         super().__init__(hemis, image_size, cache_path, overwrite, mkdirs, mkdir_mode, multiproc, timeout, dtype, memcache, normalization, features, flatmap_cache)
         self.dataset_path = ny.util.pseudo_path(dataset_path)
@@ -11,11 +11,11 @@ class GeneralImageCache(BilateralFlatmapImageCache):
         # Freesurfer data path?
         subpp = path.subpath(f'derivatives/freesurfer/{subj_id}')
         sub = ny.freesurfer_subject(subpp)
-        
-        # Load data ? 
+
+        # Load data ?
         prfpp = path.subpath(f'derivatives/prfanalyze-vista/{subj_id}/ses-nyu3t01/')
         labpp = path.subpath(f'derivatives/ROIs/{subj_id}/')
-        
+
         for h in ['lh', 'rh']:
             hem = sub.hemis[h]
 
@@ -34,7 +34,7 @@ class GeneralImageCache(BilateralFlatmapImageCache):
             sub = sub.with_hemi({h: hem})
         return sub
 
-    
+
     self.subjects = pimms.lazy_map({s: ny.util.curry(self.load_subject, s, self.dataset_path) for s in self.subject_list})
 
     @classmethod
@@ -63,10 +63,10 @@ class GeneralImageCache(BilateralFlatmapImageCache):
         else:
             sid = target
         return (sid,)
-    
+
     def cache_filename(self, target, feature):
         return os.path.join(feature, f"{target['subject']}.pt")
-    
+
     def make_flatmap(self, target, view=None):
         (sid,) = self.unpack_target(target)
         if view is None:
@@ -79,9 +79,9 @@ class GeneralImageCache(BilateralFlatmapImageCache):
         midgray = rigid_align_cortices(hem, fsahem, 'midgray')
         (x, y, z) = midgray.coordinates
         convex = hem.prop('convexity') / 10.0
-        hem = hem.with_prop(midgray_x=x, 
-                            midgray_y=y, 
-                            midgray_z=z, 
+        hem = hem.with_prop(midgray_x=x,
+                            midgray_y=y,
+                            midgray_z=z,
                             convexity=convex)
         fmap = ny.to_flatmap('occipital_pole', hem, radius=np.pi/2)
         fmap = fmap.with_meta(subject_id=sid, hemisphere=h)
@@ -91,36 +91,36 @@ class GeneralImageCache(BilateralFlatmapImageCache):
         super().fill_image(target, feature, im)
         im[torch.isnan(im)] = 0
         return im
-    
+
 
 
 class GeneralDataset(ImageCacheDataset):
     __slots__ = ()
-    
-    def __init__(self, dataset_path, inputs, 
-                 outputs, subject_list=Ellipsis, 
-                 sids=Ellipsis, image_size=Ellipsis, 
-                 cache_path=Ellipsis, 
-                 transform=None, 
-                 input_transform=None, 
-                 output_transform=None, 
-                 hemis='lr', 
-                 cache_image_size=Ellipsis, 
-                 overwrite=False, 
-                 mkdirs=True, mkdir_mode=0o775, 
-                 multiproc=True, timeout=None, 
-                 dtype='float32', memcache=True, 
-                 normalization=None, 
-                 features=None, 
+
+    def __init__(self, dataset_path, inputs,
+                 outputs, subject_list=Ellipsis,
+                 sids=Ellipsis, image_size=Ellipsis,
+                 cache_path=Ellipsis,
+                 transform=None,
+                 input_transform=None,
+                 output_transform=None,
+                 hemis='lr',
+                 cache_image_size=Ellipsis,
+                 overwrite=False,
+                 mkdirs=True, mkdir_mode=0o775,
+                 multiproc=True, timeout=None,
+                 dtype='float32', memcache=True,
+                 normalization=None,
+                 features=None,
                  flatmap_cache=True):
-        
+
 
         if cache_path is Ellipsis:
             from ..config import dataset_cache_path
             if dataset_cache_path is not None:
                 dataset_cache_path = os.path.join(dataset_cache_path, 'Data')
             cache_path = os.path.join(dataset_cache_path, 'Data')
-        
+
 
         imcache = GeneralImageCache(
             dataset_path=dataset_path,
@@ -138,14 +138,14 @@ class GeneralDataset(ImageCacheDataset):
             normalization=normalization,
             features=features,
             flatmap_cache=flatmap_cache)
-        
+
 
         if sids is Ellipsis:
             sids = subject_list
-        
+
 
         targets = tuple({'subject': s} for s in sids)
-        
+
 
         if isinstance(inputs, str):
             from ._core import input_properties as ps
@@ -153,7 +153,7 @@ class GeneralDataset(ImageCacheDataset):
         if isinstance(outputs, str):
             from ._core import output_properties as ps
             outputs = ps.get(outputs, (outputs,))
-        
+
 
         super().__init__(
             imcache, inputs, outputs, targets,
@@ -161,5 +161,4 @@ class GeneralDataset(ImageCacheDataset):
             transform=transform,
             input_transform=input_transform,
             output_transform=output_transform)
- 
-    
+

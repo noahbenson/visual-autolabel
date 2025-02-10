@@ -43,7 +43,7 @@ The following options are also accepted:
    iso-eccentric rings between 0-0.5, 0.5-1, 1-2, 2-4, and 4-7 degrees of
    eccentricity.
  * -b | --both
-   In addition to predicting visual area boundaries for V1, V2, and V3, also 
+   In addition to predicting visual area boundaries for V1, V2, and V3, also
    predict the iso-eccentric rings between 0-0.5, 0.5-1, 1-2, 2-4, and 4-7
    degrees of eccentricity.
  * -a | --annot

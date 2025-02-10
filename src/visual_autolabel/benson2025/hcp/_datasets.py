@@ -72,7 +72,7 @@ class HCPImageCache(BilateralFlatmapImageCache):
                 dataset_cache_path = os.path.join(dataset_cache_path, 'HCP')
             cache_path = dataset_cache_path
         BilateralFlatmapImageCache.__init__(
-            self, 
+            self,
             hemis=hemis,
             image_size=image_size,
             cache_path=cache_path,
@@ -473,7 +473,7 @@ def make_dataloaders(in_features, out_features,
                      memcache=True,
                      normalization=None,
                      flatmap_cache=True,
-                     datasets=None, 
+                     datasets=None,
                      shuffle=True,
                      batch_size=5):
     """Returns a pair of PyTorch dataloaders as a dictionary.

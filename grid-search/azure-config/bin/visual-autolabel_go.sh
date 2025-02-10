@@ -14,7 +14,7 @@ cd "$HOME"
 # Go ahead and run the init script as root.
 echo "Running VM Initialization ..."
 if sudo -H ./visual-autolabel_init.sh
-then 
+then
 else echo ""
      echo "Failed to run initialization script."
      exit 2

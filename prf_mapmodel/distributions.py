@@ -24,14 +24,14 @@ del log, tensor, pi
 def normal_logpdf(t, width=1, center=0):
     '''The log of the probability density function of the normal distribution.
 
-    `normal_logpdf(t)` returns the log-probability of the normal 
+    `normal_logpdf(t)` returns the log-probability of the normal
     distribution: `-(t^2 + log(2 pi)) / 2`.
 
     `normal_logpdf(t, w)` is equivalent to `normal_logpdf(t)` with a
     standard deviation parameter of `w`; equal to
     `noremal_logpdf(t/w) - log(w)`.
 
-    `normal_logpdf(t, w, center)` is equivalent to 
+    `normal_logpdf(t, w, center)` is equivalent to
     `normal_logpdf(t - center, w)`.
     '''
     from torch import as_tensor, log
@@ -64,7 +64,7 @@ def hcauchy_logpdf(t, width=1):
 
     `hcauchy_logpdf(t, w)` is equivalent to `hcauchy_logpdf(t)` with a width
     argument of `w`; equal to: `-log(pi/2 w (1 + (t/w)^2))`.
-      
+
     Note that although the half-Cauchy distribution is only defined on the
     positive real numbers, this function will return a symmetric set of values
     for the negative real numbers.
@@ -136,7 +136,7 @@ def gumbel_logpdf(t, lw=1, rw=1, center=0):
     `gumbel_logpdf(t, lw, rw)` uses the `lw` and `rw` for the widths of the
     left-hand and right-hand side of the Gumbel distribution, respectively;
     i.e.: `-(t/lr + exp(-t)/lw)`.
-      
+
     Note that this is not a typical Gumbel distribution definition, but it is a
     very similar distribution nonetheless. Whereas the Gumbel PDF is usually
     defined as being proportional to `exp(-((t-t0)/w + exp(-(t-t0)/w)))`, this

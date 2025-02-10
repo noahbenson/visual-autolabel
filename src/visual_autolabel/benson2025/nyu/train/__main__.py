@@ -86,7 +86,7 @@ if mcp is not None:
 if 'model_key' in opts:
     if model_key == opts['model_key']:
         del opts['model_key']
-    
+
 # Train the model.
 train_until(
     inputs, outputs, plan,

@@ -55,7 +55,7 @@ class HCPVisualDataset(Dataset):
     def __len__(self):
         return len(self.sids)
     def __getitem__(self, k):
-        c = self._cache[k] 
+        c = self._cache[k]
         if c is None:
             c = self.loadsub(self.sids[k], self.hemi,
                              cache_path=self.cache_path,

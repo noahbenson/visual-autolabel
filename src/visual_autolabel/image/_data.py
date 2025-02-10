@@ -41,7 +41,7 @@ from ..util import (
 
 ImageCacheOptions = namedtuple(
     'ImageCacheOptions',
-    ('image_size', 
+    ('image_size',
      'cache_path',
      'overwrite',
      'mkdirs',
@@ -205,10 +205,10 @@ class ImageCache:
             if n == 0 or m == 0:
                 return None
             # We could be given dicts at each point or tuples of (dict,rect)
-            # at each point. 
+            # at each point.
             if (m == 2 and
                 all(isinstance(r[0], Mapping) for r in views) and
-                all(isinstance(r[1], Sequence) for r in views) and 
+                all(isinstance(r[1], Sequence) for r in views) and
                 all(len(r[1]) == 4 for r in views)):
                 # We have a list of (view, rect) specifications alread.
                 return views
@@ -678,7 +678,7 @@ class ImageCache:
                      timeout=timeout)
         return None
 
-    
+
 #===============================================================================
 # Flatmaps
 
@@ -733,7 +733,7 @@ class FlatmapFeature:
             return fmap.prop(self.property)
         else:
             return self.property(fmap)
-           
+
 class FlatmapImageCache(ImageCache):
     """A ImageCache type for features made from flatmaps of hemispheres.
 
@@ -1257,7 +1257,7 @@ class ImageCacheDataset(Dataset):
     @property
     def feature_count(self):
         """Returns the number of features in the dataset's input images.
-        
+
         The feature count of `d` is the length of the `d.input_layers`.
         """
         return len(self.input_layers)

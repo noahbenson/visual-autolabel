@@ -384,7 +384,7 @@ def make_dataloaders(in_features, out_features,
                      memcache=True,
                      normalization=None,
                      flatmap_cache=True,
-                     datasets=None, 
+                     datasets=None,
                      shuffle=True,
                      batch_size=5):
     """Returns a pair of PyTorch dataloaders for the NYU dataset as a dict.

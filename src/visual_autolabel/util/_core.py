@@ -125,7 +125,7 @@ def partition(sids, how=default_partition):
 
     `partition(sids, (frac_trn, frac_val))` returns `(trn_sids, val_sids)` where
     the fraction `frac_trn` of the `sids` have been randomly placed in the
-    training seet and `frac_val` of the subjects have been placed in the 
+    training seet and `frac_val` of the subjects have been placed in the
     validation set, randomly. The sum `frac_trn + frac_val` must be between 0
     and 1.
 
@@ -144,7 +144,7 @@ def partition(sids, how=default_partition):
         identifiers may be numers or strings, but they must be sortable.
     how : tuple or str
         Either a tuple `(trn, val)` containing either the fraction of training
-        and validation set members (`trn + val == 1`) or the (integer) 
+        and validation set members (`trn + val == 1`) or the (integer)
         count of training and validation set members (`trn + val == len(sids)`),
         or a hexadecimal string created by `partition_id`.
 
@@ -175,7 +175,7 @@ def partition(sids, how=default_partition):
         elif isinstance(ntrn, int) and isinstance(nval, int):
             if ntrn < 0 or nval < 0: raise ValueError("trn and val must be > 0")
             tot = ntrn + nval
-            if tot != n: 
+            if tot != n:
                 raise ValueError("partition requires trn + val == len(sids)")
         elif isinstance(ntrn, np.ndarray) and isinstance(nval, np.ndarray):
             a1 = np.unique(sids)
@@ -272,7 +272,7 @@ def is_logits(data):
     else:                  return False
 def dice_loss(pred, gold, logits=None, smoothing=1, graph=False, metrics=None):
     """Returns the loss based on the dice coefficient.
-    
+
     `dice_loss(pred, gold)` returns the dice-coefficient loss between the
     tensors `pred` and `gold` which must be the same shape and which should
     represent probabilities. The first two dimensions of both `pred` and `gold`
@@ -322,7 +322,7 @@ def dice_loss(pred, gold, logits=None, smoothing=1, graph=False, metrics=None):
     return loss
 def bce_loss(pred, gold, logits=None, reweight=True, metrics=None):
     """Returns the loss based on the binary cross entropy.
-    
+
     `bce_loss(pred, gold)` returns the binary cross entropy loss between the
     tensors `pred` and `gold` which must be the same shape and which should
     represent probabilities. The first two dimensions of both `pred` and `gold`
@@ -393,7 +393,7 @@ def loss(pred, gold,
         argument. If `None`, then attempts to deduce whether the input is or is
         not logits. The default is `None`.
     bce_weight : float, optional
-        The weight to give the BCE-based loss; the weight for the 
+        The weight to give the BCE-based loss; the weight for the
         dice-coefficient loss is always `1 - bce_weight`. The default is `0.5`.
     reweight : boolean, optional
         Whether to reweight the classes by calculating the BCE for each class
@@ -435,7 +435,7 @@ def loss(pred, gold,
 # on properties where each vertex has a label value and 0 indicates no label.
 def dice_scores(trueprop, predprop, smooth=0, rtype=list, includezero=False):
     """Calculate the per-channel dice-score for a segmentation image.
-    
+
     Returns a dice similarity coefficient for each label value in the `truprop`
     and `predprop` images. Unlike the `dice_loss` function, `dice_scores`
     requires a single vector of label values for each property, so it does not
@@ -495,7 +495,7 @@ def dice_scores(trueprop, predprop, smooth=0, rtype=list, includezero=False):
     return dice
 def dice_score(trueprop, predprop, smooth=0, includezero=False):
     """Calculates the mean-channel dice-score for a segmentation image.
-    
+
     Returns the mean of the `dice_scores(truprop, predprop)`.
 
     Parameters
@@ -561,10 +561,10 @@ def sectors_to_rings(visual_sector, visual_area):
 def autolog(filename, stdout=True, clear=False,
             mkdirs=True, mkdir_mode=0o775):
     """Returns a function that can be used as a logger for the given filename.
-    
+
     `autolog(filename)` returns a function that acts like the `print()`
     function but that writes both to stdout and to the given file.
-    
+
     Parameters
     ----------
     filename : str
@@ -595,9 +595,9 @@ def autolog(filename, stdout=True, clear=False,
     return logfn
 def centroid(a, weights=None):
     """Returns the centroid of `a`.
-    
+
     `centroid(a)` returns the mean of the rows of `a`.
-    
+
     `centroid(a, w)` returns `dot(a, w) / sum(w)`.
     """
     if weights is None:
@@ -607,10 +607,10 @@ def centroid(a, weights=None):
         return np.dot(a, weights) / total_weight
 def centroid_align_points(a, b, weights=None, out=None):
     """Aligns the centroid of matrix `a` to that of `b`.
-    
+
     `centroid_align_points(a, b)` aligns the points in the matrix `a` to those
     in the matrix `b` by aligning their centroids.
-    
+
     Parameters
     ----------
     a : matrix
@@ -645,11 +645,11 @@ def centroid_align_points(a, b, weights=None, out=None):
     return out
 def rotation_alignment_matrix(a, b, weights=None):
     """Returns the rotation matrix that, when applied to `a`, aligns `a` to `b`.
-    
+
     `rotation_alignment_matrix(a, b)` returns the rotation matrix that aligns
     `a` to `b`; i.e. if `r = rotation_alignment_matrix(a, b)`, then `dot(r, a)`
     minimizes the difference between `a` and `b`.
-    
+
     `rotation_alignment_matrix(a, b, w)` uses `w` as a weight matrix such that
     the return value minimizes the weighted difference between `a` and `b`.
     """
@@ -669,10 +669,10 @@ def rotation_alignment_matrix(a, b, weights=None):
     return np.dot(np.dot(u, d), vt)
 def rotation_align_points(a, b, weights=None, out=None):
     """Aligns the centroid of matrix `a` to that of `b` using rotation.
-    
+
     `rotation_align_points(a, b)` aligns the points in the matrix `a` to those
     in the matrix `b` by rotating `a`.
-    
+
     Parameters
     ----------
     a : matrix
@@ -700,12 +700,12 @@ def rotation_align_points(a, b, weights=None, out=None):
     return np.dot(rotation_matrix.astype(out.dtype), a, out=out)
 def rigid_align_points(a, b, weights=None, out=None):
     """Rigidly aligns the points in matrix `a` to the points in matrix `b`.
-    
+
     `rigid_align_points(a, b)` aligns the points in the matrix `a` to those in
     the matrix `b` by first aligning the centroid of `a` to that of `b` then
     finding and applying the rotation matrix that minimizes the differences
     between `a` and `b` using the Kabsch-Umeyama algorithm.
-    
+
     Parameters
     ----------
     a : matrix
@@ -739,7 +739,7 @@ def rigid_align_points(a, b, weights=None, out=None):
         out[...] = a
     out -= centroid_a
     # Then do the rotation. Whether inplace was True or False, it is now okay to
-    # write to a (because either inplace is True or because the 
+    # write to a (because either inplace is True or because the
     # centroid_align_points function returned a new matrix for us).
     out = rotation_align_points(out, b - centroid_b, weights=weights, out=out)
     # Recenter at b's centroid.
@@ -748,7 +748,7 @@ def rigid_align_points(a, b, weights=None, out=None):
     return out
 def rigid_align_cortices(hem1, hem2, surface='white'):
     """Rigidly aligns two cortical surfaces.
-    
+
     `rigid_align_cortices(hem1, hem2, surf)` is roughly equivalent to the
     function rigid_align_points(s1.coordinates, s2.coordinates)` where `s1` and
     `s2` are `hem1.surface(surf)` and `hem2.surface(surf)` respectively. The
@@ -765,12 +765,12 @@ def rigid_align_cortices(hem1, hem2, surface='white'):
     return surf1.copy(coordinates=surf1_on_surf2)
 def forkrun(f, *args, **kwargs):
     """Runs the given function in a child subprocess and returns the results.
-    
+
     This function accepts a single callable objects followed by any number of
     arguments, all of which are passed to the callable. A process fork is
     first created in which the function is run, then pickle is used to pipe the
     function's return value back to the original process.
-    
+
     This function exists primarily to work around memory leaks that occur as a
     result of libraries that cache data internally.
     """

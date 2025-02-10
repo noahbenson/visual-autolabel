@@ -45,7 +45,7 @@ def beta_dist(mu, scale):
     `beta_dist(mu, scale)` returns the pytorch beta-distribution object(s) for
     the given mean `mu` and `scale`. The `mu` parameter must be between 0 and 1,
     and the `scale` parameter may be any real number.
-      
+
     The traditional beta distribution uses parameters `a` and `b`. The
     reparameterizatoin of `mu` and `scale` here is as follows:
      * `a = (mu * (2 - b) - 1) / (mu - 1)`
@@ -61,7 +61,7 @@ def beta_log_prob(mu, scale, x):
     `beta_log_prob(mu, scale, x)` returns the log probability density of the
     beta distribution parameterized using the mean `mu` (which must be between 0
     and 1) and `scale` (which may be any real number) at the value `x`.
-      
+
     The traditional beta distribution uses parameters `a` and `b`. The
     reparameterizatoin of `mu` and `scale` here is as follows:
      * `a = (mu * (2 - b) - 1) / (mu - 1)`
@@ -75,7 +75,7 @@ def beta_pdf(mu, scale, x):
     `beta_pdf(mu, scale, x)` returns the probability density function of the
     beta distribution parrameterized using the mean `mu` (which must be between
     0 and 1) and `scale` (which may be any real number) at the value `x`.
-    
+
     The traditional beta distribution uses parameters `a` and `b`. The
     reparameterizatoin of mu and scale here is as follows:
      * `a = (mu * (2 - b) - 1) / (mu - 1)`
@@ -93,7 +93,7 @@ def gsigmoid(x, min=-1, max=1, method='logistic', inplace=False):
      * `'logistic'`: the sigmoid / logistic function
      * `'alg1'`: order-1 algebraic function (`y = x / (1 + abs(x))`)
      * `'alg2`': order-2 algebraic function (`y = x / sqrt(1 + x**2)`)
-    
+
     Paramters
     ---------
     x : tensor
@@ -140,11 +140,11 @@ def glogit(p, min=-1, max=1, method='logistic', inplace=False):
      * `'logistic'`: the sigmoid / logistic function
      * `'alg1'`: order-1 algebraic function (`y = x / (1 + abs(x))`)
      * `'alg2`': order-2 algebraic function (`y = x / sqrt(1 + x**2)`)
-    
+
     Paramters
     ---------
     param : tensor
-        The PyTorch tensor that is to be 
+        The PyTorch tensor that is to be
     min : real, optional
         The minimum value param can be rescaled into (default: -1).
     max : real, optional
@@ -210,11 +210,11 @@ def triarea(a,b,c):
 def branch(iftensor, thentensor, elsetensor=None):
     """Returns a tensor of element-wise `if` evaluations.
 
-    `branch(q, t, e)` returns, elementwise for the given tensors, 
+    `branch(q, t, e)` returns, elementwise for the given tensors,
     `t if q else e`.
 
     `branch(q, t)` or `branch(q, t, None)` is equivalent to `branch(q, t, 0)`.
-    
+
     The output tensor will always have the same shape as q. The values for t
     and e may be constants or tensors the same shape as q.
 
