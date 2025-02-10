@@ -38,7 +38,7 @@ from ..image import (
 # terminal or to a log-file.
 
 log_header_format = "%-5s  %-7s  %-5s   %-8s  %-8s  %-8s   %-8s  %-8s  %-8s"
-log_format = " | ".join(["%2d/%2d  %7.5f  %5.1f", 
+log_format = " | ".join(["%2d/%2d  %7.5f  %5.1f",
                          "%8.3f  %8.3f  %8.3f",
                          "%8.3f  %8.3f  %8.3f %s"])
 log_header = log_header_format % (
@@ -87,7 +87,7 @@ def log_epoch(metrics, epochno=None, epochmax=None, lr=None, dt=None,
         The end-of-line string to use when printing. For logging functions like
         `print`, which automatically append a newline, this can be `None` or
         just `""`.
-    
+
     Returns
     -------
     None
@@ -128,7 +128,7 @@ def train_model(model, optimizer, scheduler, dataloaders,
                 reweight=True,
                 smoothing=1):
     """Trains and returns a model based on the various optional arguments.
-    
+
     `train_model(model, optimizer, scheduler, dataloaders)` runs training on the
     given model and returns the newly trained model. This represents a single
     set of epochs with a single `StepLR` decay.
@@ -171,7 +171,7 @@ def train_model(model, optimizer, scheduler, dataloaders,
         argument. If `None`, then attempts to deduce whether the input is or is
         not logits. The default is `None`.
     bce_weight : float, optional
-        The weight to give the BCE-based loss; the weight for the 
+        The weight to give the BCE-based loss; the weight for the
         dice-coefficient loss is always `1 - bce_weight`. The default is `0.5`.
     reweight : boolean, optional
         Whether to reweight the classes by calculating the BCE for each class
@@ -257,9 +257,9 @@ def train_model(model, optimizer, scheduler, dataloaders,
                   endl=savestr, logger=logger)
         if hlines: log_epoch(Ellipsis, logger=logger, endl=endl)
         if cache_path is not None:
-            torch.save(model.state_dict(), 
+            torch.save(model.state_dict(),
                        os.path.join(cache_path, "model%06d.pt" % epoch))
-            torch.save(optimizer.state_dict(), 
+            torch.save(optimizer.state_dict(),
                        os.path.join(cache_path, "optim%06d.pt" % epoch))
     if logger is not None:
         logger('Best val loss: {:4f}'.format(best_loss) + endl)
@@ -311,7 +311,7 @@ def _make_dataloaders_and_model(
     if init_weights is not None:
         from pathlib import Path
         if isinstance(init_weights, (str, Path)):
-            weights = torch.load(init_weights)
+            weights = torch.load(init_weights,weights_only=True)
         else:
             # otherwise, assume the init_weights are the weights dictionary
             weights = init_weights
@@ -432,7 +432,7 @@ def build_model(
         argument. If `None`, then attempts to deduce whether the input is or is
         not logits. The default is `None`.
     bce_weight : float, optional
-        The weight to give the BCE-based loss; the weight for the 
+        The weight to give the BCE-based loss; the weight for the
         dice-coefficient loss is always `1 - bce_weight`. The default is `0.5`.
     reweight : boolean, optional
         Whether to reweight the classes by calculating the BCE for each class
@@ -495,7 +495,7 @@ def build_model(
         cache_path=model_cache_path,
         logger=logger,
         bce_weight=bce_weight,
-        reweight=reweight, 
+        reweight=reweight,
         device=device,
         hlines=hlines)
 
@@ -575,13 +575,13 @@ def train_until(in_features, out_features, training_plan,
                 mkdir_mode=0o775,
                 **kwargs):
     """Continuously runs the given training plan for models until an interrupt.
-        
+
     Runs training on `'anat'`, `'func'`, and `'both'` models, sequentially,
     using random partitions until a keyboard interrupt is caught, at which
     point a `pandas` dataframe of the results is returned. The partition is
     generated only once per group of model trainings (i.e., per training of an
     anatomical, functional, and combined model).
-    
+
     Parameters
     ----------
     training_plan : list of dicts
@@ -750,10 +750,10 @@ def load_training(model_key,
                   base_model='resnet18',
                   sids='hcp'):
     """Loads data from a directory written to during `train_until`.
-    
+
     `load_training(model_key)` can be used to load data saved by a call to
     `train_until` with the given `model_key`.
-    
+
     Parameters
     ----------
     model_key : str
@@ -761,7 +761,7 @@ def load_training(model_key,
     model_cache_path : str, optional
         The cache path in which the models are saved. By default uses
         `model_cache_path` (the gloabl value).
-        
+
     Returns
     -------
     dict
@@ -794,7 +794,7 @@ def load_training(model_key,
     for fl in os.listdir(path):
         if fl.startswith('best_') and fl.endswith('.pt'):
             flnm = os.path.join(path, fl)
-            state = torch.load(flnm)
+            state = torch.load(flnm,weights_only=False)
             #nfeat = state['base_model.conv1.weight'].shape[1]
             nfeat = state['layer0.0.weight'].shape[1]
             nsegm = state['conv_last.weight'].shape[0]
