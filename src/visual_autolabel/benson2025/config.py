@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/__init__.py
+# visual_autolabel/benson2025/__init__.py
 
-"""Configuration of the visual_autolabel.benson2024 module.
+"""Configuration of the visual_autolabel.benson2025 module.
 
 This module contains simple configuration items used in writing the paper Benson
 et al, 2024. All of these configuration items are used by the functions of the
-`visual_autolabel.benson2024` module when the optional parameter `Ellipsis` (or
+`visual_autolabel.benson2025` module when the optional parameter `Ellipsis` (or
 `...`) is provided; for example, `hcp_dataset(111312)` is equivalent to calling
-`hcp_dataset(111312, dataset_cache_path=benson2024.config.dataset_cache_path`.
+`hcp_dataset(111312, dataset_cache_path=benson2025.config.dataset_cache_path`.
 
 Attributes
 ----------

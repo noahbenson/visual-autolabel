@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import ipyvolume as ipv
 
 import visual_autolabel as va
-import visual_autolabel.benson2024 as proj
+import visual_autolabel.benson2025 as proj
 
 dataset_cache_path  = '/data/visual-autolabel/datasets'
 analysis_path = '/data/visual-autolabel/analysis'

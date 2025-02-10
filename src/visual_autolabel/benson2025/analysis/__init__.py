@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/analysis/__init__.py
+# visual_autolabel/benson2025/analysis/__init__.py
 
 """Analysis functions for examining the data from Benson et al. (2024)."""
 

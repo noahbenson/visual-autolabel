@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/nyu/__init__.py
+# visual_autolabel/benson2025/nyu/__init__.py
 
 from ._datasets import (
     NYUImageCache,

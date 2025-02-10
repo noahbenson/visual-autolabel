@@ -132,7 +132,7 @@ add_wang2015.fsaverage_subject = None
 def add_raterlabels(sub):
     """Returns a copy of the given subject with labels as drawn by raters.
     """
-    from ..benson2024.hcp import HCPImageCache
+    from ..benson2025.hcp import HCPImageCache
     lbldata = ny.data['hcp_lines'].subject_labels
     sid = int(sub.name)
     lbls = {}

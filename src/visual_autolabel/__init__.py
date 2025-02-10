@@ -75,7 +75,7 @@ from . import plot
 
 #-------------------------------------------------------------------------------
 # Tooling for the Benson et al. (2024) paper.
-from . import benson2024
+from . import benson2025
 
 
 #===============================================================================
@@ -96,5 +96,5 @@ __all__ = [
     "train_until",
     "load_training",
     "plot",
-    "benson2024"
+    "benson2025"
 ]

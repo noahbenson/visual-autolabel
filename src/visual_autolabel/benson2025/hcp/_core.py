@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/hcp/_core.py
+# visual_autolabel/benson2025/hcp/_core.py
 
 
 #===============================================================================
@@ -48,11 +48,11 @@ class DWIFeature(FlatmapFeature):
         
         By default, this returns the value found in the environment variable
         `DWI_FILENAME_PATTERN`. It can be changed by changing the value of
-        `visual_autolabel.benson2024.config.dwi_filename_pattern`.
+        `visual_autolabel.benson2025.config.dwi_filename_pattern`.
         """
-        # We want to extract this from the benson2024 namespace, in case
+        # We want to extract this from the benson2025 namespace, in case
         # someone changes it manually.
-        from visual_autolabel.benson2024.config \
+        from visual_autolabel.benson2025.config \
             import dwi_filename_pattern as patt
         if patt is None:
             raise RuntimeError("DWI_FILENAME_PATTERN not set")

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/__init__.py
+# visual_autolabel/benson2025/__init__.py
 
 """Tooling and functions specific to the paper Benson et al, 2024.
 """

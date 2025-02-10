@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ################################################################################
-# visual_autolabel/benson2024/nyu/train/__main__.py
+# visual_autolabel/benson2025/nyu/train/__main__.py
 
 
 #===============================================================================
@@ -26,7 +26,7 @@ from ....image import (
 # Commandline Arguments.........................................................
 # There must be four of them.
 if len(sys.argv) != 5:
-    print("SYNTAX: python -m visual_autolabel.benson2024.nyu.train \\\n"
+    print("SYNTAX: python -m visual_autolabel.benson2025.nyu.train \\\n"
           "          <model_key> <initial_weights> <options.json> <plan.json>",
           file=sys.stderr)
     sys.exit(1)

@@ -18,7 +18,7 @@ To use this package, there are two interfaces:
    The `results` should be a tuple `(lh_labels, rh_labels)` for each
    hemisphere.  
    How to make this function:
-   * First, look at `visual_autolabel.benson2024.nyu._datasets`: there is an
+   * First, look at `visual_autolabel.benson2025.nyu._datasets`: there is an
      `NYUImageCache` and an `NYUDataset` class. We can use these as templates
      for a new pair of classes that don't specifically load the NYU dataset
      and instead load FreeSurfer subjects.
@@ -35,7 +35,7 @@ To use this package, there are two interfaces:
      mdl = unet(
          'anat', 'area', 'model',
          model_cache_path=model_cache_path)
-     # This code comes from line 199 of visual_autolabel/benson2024/nyu/_core.py
+     # This code comes from line 199 of visual_autolabel/benson2025/nyu/_core.py
      labels = ds.predlabels({'subject':sid}, mdl, view=view, labelsets=labelsets)
      ```
      
