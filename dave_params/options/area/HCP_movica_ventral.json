@@ -1,0 +1,9 @@
+{"until": 10,
+ "inputs": ["mov1ica1", "mov1ica2", "mov1ica3", "mov1ica4", "mov1ica5", "mov1ica6", "mov1ica7", "mov1ica8", "mov1ica9", "mov1ica10", "mov1ica11", "mov1ica12"],
+ "multiproc": false,
+ "prediction": ["hV4", "VO1", "VO2"],
+ "raters": ["A7", "A8", "A11", "A12", "A13"],
+ "base_model": "resnet34",
+ "dataset_cache_path": "/data/visual-autolabel/datasets/HCP",
+ "model_cache_path": "/data/visual-autolabel/models",
+ "partition": "default"}
