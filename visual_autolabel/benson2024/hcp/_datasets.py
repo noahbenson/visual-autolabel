@@ -184,7 +184,6 @@ class HCPImageCache(BilateralFlatmapImageCache):
         hem = hem.with_prop(midgray_x=x, midgray_y=y, midgray_z=z)
         if rater is not None and rater != 'mean':
             # Get the appropriate data from the dataset.
-            print(rater, sid, h)
             dat = ny.data['hcp_lines'].subject_labels[rater][sid][h]
             hem = hem.with_prop(
                 visual_area=dat['visual_area'],

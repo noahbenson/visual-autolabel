@@ -169,22 +169,84 @@ class PCAFeature(FlatmapFeature):
             from warnings import warn
             warn(f"failed to save PCA cache file: {pca_filename}")
         return pcs
+# Next, Signal-correlation based features.
+class SignalFeature(FlatmapFeature):
+    """Flatmap features loaded from correlations of a signal derived from BOLD
+    timecourses.
+    """
+    _fsa_maps = {}
+    @classmethod
+    def get_fsamap(cls, h):
+        if h not in cls._fsa_maps:
+            fmap = ny.to_flatmap(
+                'occipital_pole',
+                ny.freesurfer_subject('fsaverage').hemis[h],
+                radius=np.pi/2.25)
+            cls._fsa_maps[h] = fmap
+        return cls._fsa_maps[h]
+    # The method to interpret that filename pattern.
+    def get_filename(self, target, view):
+        data = dict(target, **view)
+        data['H'] = data['hemisphere'][0].upper()
+        flpatt = self.sig_path_patterns
+        if isinstance(flpatt, str):
+            return flpatt.format(**data)
+        else:
+            flparts = [s.format(**data) for s in flpatt]
+            return os.path.join(*flparts)
+    # FlatmapFeature overloads -------------------------------------------------
+    __slots__ = (
+        'sig_name', 'sig_path_patterns',
+        'sig_index', 'nsigs')
+    def __init__(self, name, path, k, nsigs=12):
+        super().__init__(f'sig_{name}')
+        self.sig_name = name
+        self.sig_path_patterns = path
+        self.sig_index = k
+        self.nsigs = nsigs
+    def get_property(self, fmap, target, view={}):
+        return self.get_properties(fmap, target, view)[self.sig_index, :]
+    def get_properties(self, fmap, target, view={}):
+        # If we have already caclulated these, we just load them:
+        sig_filename = self.get_filename(target, view)
+        sig_filename = sig_filename.format(nsigs=self.nsigs, **target, **view)
+        if os.path.isfile(sig_filename):
+            with open(sig_filename, 'rb') as f:
+                fsasig = np.load(f)
+                h = view.get('hemisphere', target.get('hemisphere'))
+                fsamap = self.get_fsamap(h)
+                if h == 'lh':
+                    fsasig = fsasig[:, :fsamap.vertex_count]
+                elif h == 'rh':
+                    fsasig = fsasig[:, -fsamap.vertex_count:]
+            sig = fsamap.interpolate(fmap.coordinates, fsasig)
+            return sig
+        else:
+            from warnings import warn
+            warn(f"failed to load any of the sigica files for"
+                 f" target: {target}")
+            return np.zeros((self.nsigs, fmap.vertex_count), dtype=np.float32)
+
 mov1_paths = (
     'MNINonLinear/Results/tfMRI_MOVIE1_7T_AP/tfMRI_MOVIE1_7T_AP.{H}.native.func.gii',
     'MNINonLinear/Results/tfMRI_MOVIE2_7T_PA/tfMRI_MOVIE2_7T_PA.{H}.native.func.gii')
 mov2_paths = (
     'MNINonLinear/Results/tfMRI_MOVIE3_7T_PA/tfMRI_MOVIE3_7T_PA.{H}.native.func.gii',
     'MNINonLinear/Results/tfMRI_MOVIE4_7T_AP/tfMRI_MOVIE4_7T_AP.{H}.native.func.gii')
-mov1_cache_path = (
-    '/data/visual-autolabel/datasets/HCP/_pca_cache/{subject}_{hemisphere}_mov1.npy')
-mov2_cache_path = (
+movpca_cache_paths = (
+    '/data/visual-autolabel/datasets/HCP/_pca_cache/{subject}_{hemisphere}_mov1.npy',
     '/data/visual-autolabel/datasets/HCP/_pca_cache/{subject}_{hemisphere}_mov2.npy')
-bold_features = {
-    f'mov{m+1}pc{k+1}': PCAFeature(f'mov{m+1}pc{k+1}', mp, k, mcp)
-    for (m,mp,mcp) in zip([0,1],
-                          [mov1_paths,mov2_paths],
-                          [mov1_cache_path,mov2_cache_path])
-    for k in range(12)}
+movsigica_cache_paths = (
+    '/home/nben/tmp/_movie_signals/{subject}_fsasigs1.npy',
+    '/home/nben/tmp/_movie_signals/{subject}_fsasigs2.npy')
+
+bold_features = {}
+for (m,mp) in zip([0,1], [mov1_paths,mov2_paths]):
+    for k in range(12):
+        bold_features[f'mov{m+1}pc{k+1}'] = PCAFeature(
+            f'mov{m+1}pc{k+1}', mp, k, movpca_cache_paths[m])
+        bold_features[f'mov{m+1}sigica{k+1}'] = SignalFeature(
+            f'mov{m+1}sigica{k+1}', movsigica_cache_paths[m], k)
 features = dict(
     dwi_features,
     # Add in the 'zeros' feature, which represents all zeros for a null input.
@@ -205,6 +267,13 @@ bold_properties = (
     'mov1pc7', 'mov1pc8', 'mov1pc9', 'mov1pc10', 'mov1pc11', 'mov1pc12',
     'mov2pc1', 'mov2pc2', 'mov2pc3', 'mov2pc4',  'mov2pc5',  'mov2pc6',
     'mov2pc7', 'mov2pc8', 'mov2pc9', 'mov2pc10', 'mov2pc11', 'mov2pc12')
+sig_properties = (
+    'mov1sigica1', 'mov1sigica2', 'mov1sigica3', 'mov1sigica4', 'mov1sigica5',
+    'mov1sigica6', 'mov1sigica7', 'mov1sigica8', 'mov1sigica9', 'mov1sigica10',
+    'mov1sigica11', 'mov1sigica12',
+    'mov2sigica1', 'mov2sigica2', 'mov2sigica3', 'mov2sigica4', 'mov2sigica5',
+    'mov2sigica6', 'mov2sigica7', 'mov2sigica8', 'mov2sigica9', 'mov2sigica10',
+    'mov2sigica11', 'mov2sigica12')
 full_properties = (t1only_properties + t2only_properties +
                    dwonly_properties + fnonly_properties)
 # The feature-sets by name.
@@ -227,13 +296,19 @@ input_properties = {
         'mov2pc7', 'mov2pc8', 'mov2pc9', 'mov2pc10', 'mov2pc11', 'mov2pc12'),
     'movs': (
         'mov1pc1', 'mov1pc2', 'mov1pc3', 'mov1pc4',  'mov1pc5',  'mov1pc6',
-        'mov2pc1', 'mov2pc2', 'mov2pc3', 'mov2pc4',  'mov2pc5',  'mov2pc6')
-}
+        'mov2pc1', 'mov2pc2', 'mov2pc3', 'mov2pc4',  'mov2pc5',  'mov2pc6'),
+    'mov1sigica': (
+        'curvature', 'convexity', 'thickness', 'surface_area',
+        'mov1sigica1', 'mov1sigica2', 'mov1sigica3', 'mov1sigica4',
+        'mov1sigica5',  'mov1sigica6', 'mov1sigica7'),
+    'mov1sigica_only': (
+        'mov1sigica1', 'mov1sigica2', 'mov1sigica3', 'mov1sigica4',
+        'mov1sigica5',  'mov1sigica6', 'mov1sigica7', 'mov1sigica8',
+        'mov1sigica9', 'mov1sigica10', 'mov1sigica11', 'mov1sigica12')}
 output_properties = {
     'area': vaonly_properties,
     'ring': econly_properties,
-    'sect': vaonly_properties + econly_properties,
-}
+    'sect': vaonly_properties + econly_properties}
 # All the feature properties.
 properties = dict(input_properties, **output_properties)
 

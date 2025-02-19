@@ -315,7 +315,7 @@ def dice_loss(pred, gold, logits=None, smoothing=1, graph=False, metrics=None):
     if smoothing is None: smoothing = 0
     loss = (1 - ((2 * intersection + smoothing) / (pred + gold + smoothing)))
     # Average the loss across classes then take the mean across batch elements.
-    loss = loss.mean(dim=1).mean()
+    loss = loss.nanmean(dim=1).nanmean()
     if metrics is not None:
         if 'dice' not in metrics: metrics['dice'] = 0.0
         metrics['dice'] += loss.data.cpu().numpy() * gold.size(0)

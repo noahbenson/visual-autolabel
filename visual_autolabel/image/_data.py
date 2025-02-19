@@ -632,8 +632,14 @@ class ImageCache:
         # Check the cache first.
         feature = None if overwrite else self.cache.get(filename, None)
         if feature is None:
-            # We need to generate the feature.
-            feature = self._get_feature(target_id, feature_name, filename,
+            # We need to generate the feature. First we should fix the filename
+            # for the _get_feature method:
+            cp = str(self.options.cache_path)
+            if filename.startswith(cp) or os.path.isabs(filename):
+                abs_filename = filename
+            else:
+                abs_filename = os.path.join(cp, filename)
+            feature = self._get_feature(target_id, feature_name, abs_filename,
                                         multiproc=multiproc,
                                         timeout=timeout)
             # Then we put it in the cache. We only do this if we're actualy
