@@ -1,5 +1,5 @@
 {"until": 10,
- "inputs": "trac",
+ "inputs": ["anat", "trac", "full"],
  "multiproc": false,
  "prediction": ["hV4", "VO1", "VO2"],
  "raters": ["A7", "A8", "A11", "A12", "A13"],
