@@ -1,0 +1,12 @@
+{"until": 10,
+ "inputs": {
+     "moan": ["x", "y", "z", "curvature", "convexity", "thickness", "surface_area",
+              "mov1pc1", "mov1pc2", "mov1pc3", "mov1pc4", "mov1pc5", "mov1pc6", "mov1pc7"],
+     "mov1": ["curvature", "convexity",
+              "mov1pc1", "mov1pc2", "mov1pc3", "mov1pc4", "mov1pc5", "mov1pc6",
+              "mov1pc7", "mov1pc8", "mov1pc9", "mov1pc10", "mov1pc11", "mov1pc12"]},
+ "prediction": "area",
+ "base_model": "resnet34",
+ "dataset_cache_path": "/data/visual-autolabel/datasets/HCP",
+ "model_cache_path": "/data/visual-autolabel/models",
+ "partition": "default"}
