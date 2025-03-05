@@ -13,6 +13,7 @@ from collections import namedtuple
 from collections.abc import (Mapping, Sequence)
 
 import numpy as np
+import scipy.sparse as sps
 import neuropythy as ny
 import matplotlib.pyplot as plt
 import torch, pimms
@@ -998,7 +999,6 @@ class FlatmapImageCache(ImageCache):
         # Get a numpy matrix for the image. We allow tuples/lists of images or
         # 3D images whose first dimension is channels, and we return a similar
         # object of properties.
-        from collections.abc import Mapping
         if isinstance(image, Mapping):
             return {k: self.inv(fmap, v, view=view, null=null, dtype=dtype)
                     for (k,v) in image.items()}
@@ -1172,7 +1172,77 @@ class BilateralFlatmapImageCache(FlatmapImageCache):
     def inv(self, target, image, view=None, null=np.nan, dtype=None):
         if isinstance(view, str): view = {'hemisphere': view}
         return super().inv(target, image, view=view, null=null, dtype=dtype)
-
+    def volume_to_image_matrix(self, affine, shape3D, target, view=('lh','rh')):
+        # If view is a list/tuple, run over each; otherwise, we need to extract
+        # a sub-image.
+        if isinstance(view, (list, tuple)):
+            return sum(
+                self.volume_to_image_matrix(affine, shape3D, target, view=v)
+                for v in view)
+        if isinstance(view, str):
+            view = {'hemisphere': view}
+        h = view['hemisphere']
+        shape2D = self.image_size()
+        rect = self.view_rectangle(view)
+        if rect is None:
+            raise ValueError(f"view not found: {view}")
+        (rows,cols) = ImageCache.view_slices(shape2D, rect)
+        # Get the flatmap. If target is itself a flatmap, just use it.
+        if ny.is_mesh(target):
+            fmap = target
+        else:
+            fmap = self.get_flatmap(target, view=view)
+        # A few useful values...
+        nvox = int(np.prod(shape3D))
+        npix = int(np.prod(shape2D))
+        # Now get the midray x, y, and z values and convert them to voxel
+        # indices.
+        xyz = np.stack(
+            [fmap.prop('midgray_x'),
+             fmap.prop('midgray_y'),
+             fmap.prop('midgray_z')],
+            axis=0)
+        # We convert these to voxel indices using the inverse affine:
+        iaff = np.linalg.inv(affine)
+        vox = iaff[:3, :3] @ xyz + iaff[:3, [3]]
+        vox = vox.round().astype(int)
+        # Get these voxel coordinates and make them into a sparse array.
+        (rows3D, cols3D, slices3D) = shape3D
+        # Exclude the vertices that fall outside the volume.
+        ii = np.where(
+            (vox[0] >= 0) & (vox[0] < rows3D) &
+            (vox[1] >= 0) & (vox[1] < cols3D) &
+            (vox[2] >= 0) & (vox[2] < slices3D))[0]
+        nvtx = len(ii)
+        vox = vox[:, ii]
+        linvox = vox[2] + vox[1]*slices3D + vox[0]*slices3D*cols3D
+        S1 = sps.csr_array(
+            (np.ones(len(ii)), (np.arange(len(ii)), linvox[ii])),
+            shape=(nvtx, nvox))
+        # S1 transforms voxel data into flatmap vertex data.
+        # (The voxel data is first flattened then lh and rh are concatenated
+        #  to make the input vector u; v = S1 @ u results in the lh/rh
+        #  concatenated flatmap vertex data).
+        # We now need to convert from vertex to pixel, and for that we need
+        # to know where the pixels are in the flatmaps.
+        addrs = self.flatmap_imaddrs(fmap, view=view)
+        (wa,wb) = addrs['coordinates']
+        wc = 1 - (wa + wb)
+        (a,b,c) = addrs['faces']
+        (pxrow, pxcol) = addrs['pixel_indices']
+        # If the view is split across lh/rh, we need to correct these.
+        pxrow = pxrow + rows.start
+        pxcol = pxcol + cols.start
+        pxii = shape2D[1] * pxrow + pxcol
+        pxii = np.concatenate([pxii, pxii, pxii])
+        abc = np.concatenate([a, b, c])
+        w = np.concatenate([wa, wb, wc])
+        S2 = sps.csr_array(
+            (w, (pxii, abc)),
+            shape=(npix, nvtx))
+        # The product of these two gives us the transformation from voxel to
+        # pixel.
+        return S2 @ S1
 
 #===============================================================================
 # ImageCache-based Datasets.

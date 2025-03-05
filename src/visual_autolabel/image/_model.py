@@ -7,6 +7,9 @@
 #===============================================================================
 # Dependencies
 
+from collections.abc import Mapping
+
+import scipy.sparse as sps
 import torch
 from torch import nn
 
@@ -61,7 +64,7 @@ class UNet3D(nn.Module):
                  base_model='resnet18',
                  logits=True):
         # Make sure we can import the resnet3D library:
-        import .kenshohara_resnet as resnetlib
+        from . import kenshohara_resnet as resnetlib
         # Initialize the super-class.
         super().__init__()
         # Store some basic attributes.
@@ -338,7 +341,7 @@ class HybridUNet(nn.Module):
                  feature_count_3D, output_count_3D,
                  feature_count_2D, segment_count,
                  base_model='resnet18',
-                 logits=True)
+                 logits=True):
         self.unet3D = UNet3D(
             feature_count_3D,
             output_count_3D,
@@ -357,11 +360,12 @@ class HybridUNet(nn.Module):
         #  ...   H is height
         #  ...   W is width
         #  ...   D is depth (for a 3D CNN; no D for a 2D CNN).
-
+        #
         # First, run the 3D CNN:
         output3D = self.unet3D(inputs3D)
         # Transform the 3D outputs into 2D images:
-        flat_output3D = self.transform_3D_to_2D(output3D, tx_3D_to_2D, shape_2D)
+        shape2D = inputs2D.shape[-2:]
+        flat_output3D = self.transform_3D_to_2D(output3D, tx_3D_to_2D, shape2D)
         # Combine the flattened 3D data with the 2D inputs.
         inputs_combined_2D = torch.cat(
             [inputs2D, flat_output3D],
@@ -369,7 +373,7 @@ class HybridUNet(nn.Module):
         # Run the 2D CNN:
         segments = self.unet2D(inputs_combined_2D)
         return segments
-    def transform_3D_to_2D(self, data3D, tx_3D_to_2D, shape_2D):
+    def transform_3D_to_2D(self, data3D, tx_3D_to_2D, shape2D):
         # tx_3D_to_2D needs to be a giant sparse matrix; the shape of the matrix
         #   should be (N x M) where N is the number of cells in data3D and M is the
         #   number of pixels in the output image (shape_2D[0] * shape_2D[1]).
@@ -377,25 +381,16 @@ class HybridUNet(nn.Module):
         #   we want to convert it to (B, C, rows2D, columns2D).
         # shape_2D is the (rows2D, columns2D) in the 2D images we are producing and
         #   so M = shape_2D[0] * shape_2D[1]
+        (rows2D, columns2D) = shape2D
         # To make the output 2D image, we iterate over the channels (dim 1) of the
         #   3D data.
-        channels = []
-        for ii in range(data3D.shape[1]):
-            # Extract one channel:
-            channel3D = data3D[:,ii]
-            # channel3D has shape (B, Rs, Cs, Ss)
-            data3D_flat = torch.reshape(
-                channel3D,
-                # single channel has dims B x Rs x Cs x Ss;
-                # we flatten to B x N (N = Rs * Cs * Ss)
-                (data3D.shape[0], -1))
-            # data3D_flat has shape (B, N) where N = Rs*Cs*Ss
-            # data3D_flat.T has shape (N, B) which matches tx_3D_to_2D matrix.
-            data2D_flat = tx_3D_to_2D @ data3D_flat.T
-            # data2D_flat has shape (M, B) where M is the number of 2D pixels.
-            data2D_image = torch.reshape(data2D_flat.T, (-1,1) + shape_2D)
-            # data2D_image has shape (B, 1, Rs2D, Cs2D)
-            channels.append(data2D_image)
-        # Now we have a list of data, one entry per channel of the 2D output.
-        im = torch.cat(channels, dim=1)
+        (nbatches, nchannels, nrows, ncols, nslices) = data3D.shape
+        data3D_flat = torch.reshape(
+            data3D,
+            # single channel has dims B x Rs x Cs x Ss;
+            # we flatten to B x N (N = Rs * Cs * Ss)
+            (nbatches * nchannels, nrows * ncols * nslices))
+        data2D_flat = tx_3D_to_2D @ data3D_flat.T
+        im = torch.reshape(data2D_flat.T, (nbatches, nchannels) + shape2D)
         return im
+

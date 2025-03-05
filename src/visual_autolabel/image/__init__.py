@@ -16,7 +16,9 @@ from ._data import (
     NullFeature
 )
 from ._model import (
-    UNet
+    UNet2D,
+    UNet3D,
+    HybridUNet as UNet
 )
                     
 __all__ = [

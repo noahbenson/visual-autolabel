@@ -163,7 +163,7 @@ class HCPImageCache(BilateralFlatmapImageCache):
                 (rater, sid) = target
         else:
             raise ValueError(
-                f"target for {type(self)}.make_flatmap must be one of: "
+                f"target for {cls}.make_flatmap must be one of: "
                 "(rater,sid), {'rater':rater, 'subject':sid}")
         return (rater, sid)
     def cache_filename(self, target, feature):
