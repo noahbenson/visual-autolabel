@@ -1217,7 +1217,7 @@ class BilateralFlatmapImageCache(FlatmapImageCache):
         vox = vox[:, ii]
         linvox = vox[2] + vox[1]*slices3D + vox[0]*slices3D*cols3D
         S1 = sps.csr_array(
-            (np.ones(len(ii)), (np.arange(len(ii)), linvox[ii])),
+            (np.ones(len(ii)), (np.arange(len(ii)), linvox)),
             shape=(nvtx, nvox))
         # S1 transforms voxel data into flatmap vertex data.
         # (The voxel data is first flattened then lh and rh are concatenated
