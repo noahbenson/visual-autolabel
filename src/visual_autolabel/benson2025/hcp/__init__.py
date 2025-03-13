@@ -4,8 +4,12 @@
 
 from ._datasets import (
     HCPImageCache,
+    CVDLinesDataset,
+    VentralLinesDataset,
+    DorsalLinesDataset,
     HCPDataset,
     make_datasets,
+    make_datasets_from_file,
     make_dataloaders
 )
 from ._core import (
@@ -25,8 +29,12 @@ from . import train
 
 __all__ = [
     'HCPImageCache',
+    'CVDLinesDataset',
+    'VentralLinesDataset',
+    'DorsalLinesDataset',
     'HCPDataset',
     'make_datasets',
+    'make_datasets_from_file',
     'make_dataloaders',
     'DWIFeature',
     'input_properties',

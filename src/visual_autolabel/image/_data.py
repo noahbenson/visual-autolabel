@@ -542,7 +542,6 @@ class ImageCache:
             im = self.load_image(filename)
             if im is not None:
                 return im.to(self._dtype())
-        print("_get_feature:", target_id, feature_name, filename)
         # The main task here is to call down to the static method, either in a
         # separate process or in this one.
         fn = self._generate_feature
@@ -582,7 +581,7 @@ class ImageCache:
         if not filename.startswith(cp) and not os.path.isabs(filename):
             filename = os.path.join(cp, filename)
         try:
-            return torch.load(filename,weights_only=True)
+            return torch.load(filename, weights_only=True)
         except Exception:
             return None
     def get(self, target_id, feature_name,
@@ -1312,6 +1311,7 @@ class ImageCacheDataset(Dataset):
                 return (targ, ii)
         raise KeyError(k)
     def __getitem__(self, k):
+    # over targets (e.g. rater & subject), returns input_im and output_im
         ims = None if self.cache is None else self.cache.get(k)
         if ims is not None:
             return ims

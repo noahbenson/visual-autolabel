@@ -49,6 +49,7 @@ import numpy as np
 
 
 #-------------------------------------------------------------------------------
+# TODO MOVE
 # hcp_sids
 hcp_sids = np.array(
     [100610, 118225, 140117, 158136, 172130, 197348, 214524, 346137,
@@ -75,6 +76,7 @@ hcp_sids = np.array(
 hcp_sids.flags['WRITEABLE'] = False
 
 #-------------------------------------------------------------------------------
+# TODO MOVE
 # nyu_sids
 nyu_sids = np.array(
     ['sub-wlsubj001', 'sub-wlsubj004', 'sub-wlsubj006', 'sub-wlsubj007',
@@ -112,25 +114,6 @@ dwi_filename_pattern = os.environ.get(
      '{hemisphere}.{tract_name}_normalized.mgz'))
 
 
-#-------------------------------------------------------------------------------
-# visual_area_label_key
-visual_area_label_key = {
-    'V1': 1,
-    'V2': 2,
-    'V3': 3,
-    'hV4': 4,
-    'VO1': 5,
-    'VO2': 6,
-    'V3a': 7,
-    'V3b': 8,
-    'IPS0': 9,
-    'LO1': 10}
-visual_area_label_names = tuple(
-    map(
-        lambda u: u[0],
-        sorted(
-            visual_area_label_key.items(),
-            key=lambda u: u[1])))
 
 # Delete extraneous imports.
 del np

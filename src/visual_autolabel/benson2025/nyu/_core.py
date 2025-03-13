@@ -27,7 +27,7 @@ from ...plot import (
 # Initialization
 
 from .._core import (
-    vaonly_properties,
+    caonly_properties,
     econly_properties,
     t1only_properties,
     fnonly_properties)
@@ -38,7 +38,7 @@ input_properties = {
     # 'fnyu' is used to specify the functional CNN retrained on the NYU dataset.
     'fnyu': t1only_properties + fnonly_properties}
 output_properties = {
-    'area': vaonly_properties}
+    'area': caonly_properties}
 # All the properties and additional features (none for this dataset).
 properties = dict(input_properties, **output_properties)
 features = {}

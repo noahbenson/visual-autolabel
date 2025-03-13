@@ -9,23 +9,84 @@
 #-------------------------------------------------------------------------------
 # Dependencies
 
-import os, json
+import json
+import os
 
 import numpy as np
+
 import neuropythy as ny
 
-from ...image import (
-    FlatmapFeature,
-    NullFeature)
-from ...plot import (
-    add_inferred,
-    add_prior,
-    add_raterlabels)
+from ...image import FlatmapFeature, NullFeature
+from ...plot import add_inferred, add_prior, add_raterlabels
+from .._core import (
+    caonly_properties,
+    vaonly_properties,
+    daonly_properties,
+    econly_properties,
+    fnonly_properties,
+    t1only_properties,
+    visual_area_neighbors,
+    visual_area_label_key
+)
+central_raters = ('A1', 'A2', 'A3', 'A4')
 
+t2only_properties = ('myelin',)
+dwonly_properties = ('dwi_OR', 'dwi_VOF')
+full_properties = (t1only_properties + t2only_properties +
+                   dwonly_properties + fnonly_properties)
+# Inputs and Outputs
+input_properties = {
+    'null': ('zeros',),
+    'anat': t1only_properties,
+    't1t2': t1only_properties + t2only_properties,
+    'func': t1only_properties + fnonly_properties,
+    'trac': t1only_properties + dwonly_properties,
+    'not2': t1only_properties + fnonly_properties + dwonly_properties,
+    'nofn': t1only_properties + t2only_properties + dwonly_properties,
+    'nodw': t1only_properties + t2only_properties + fnonly_properties,
+    'full': full_properties
+}
+output_properties = {
+    'area': caonly_properties,
+    'vent': vaonly_properties,
+    'dors': daonly_properties,
+    'ring': econly_properties,
+    'sect': caonly_properties + econly_properties,
+}
+
+
+
+properties = dict(input_properties, **output_properties)
+
+subject_list = (100610, 118225, 140117, 158136, 172130, 182436, 197348, 214524,
+                    346137, 412528, 573249, 724446, 825048, 905147, 102311, 125525,
+                    144226, 159239, 173334, 182739, 198653, 221319, 352738, 429040,
+                    581450, 725751, 826353, 910241, 102816, 126426, 145834, 162935,
+                    175237, 185442, 199655, 233326, 360030, 436845, 585256, 732243,
+                    833249, 926862, 104416, 128935, 146129, 164131, 176542, 186949,
+                    200210, 239136, 365343, 463040, 601127, 751550, 859671, 927359,
+                    105923, 130114, 146432, 164636, 177140, 187345, 200311, 246133,
+                    380036, 467351, 617748, 757764, 861456, 942658, 108323, 130518,
+                    146735, 165436, 177645, 191033, 200614, 249947, 381038, 525541,
+                    627549, 765864, 871762, 943862, 109123, 131217, 146937, 167036,
+                    177746, 191336, 201515, 251833, 385046, 536647, 638049, 770352,
+                    872764, 951457, 111312, 131722, 148133, 167440, 178142, 191841,
+                    203418, 257845, 389357, 541943, 644246, 771354, 878776, 958976,
+                    111514, 132118, 150423, 169040, 178243, 192439, 204521, 263436,
+                    393247, 547046, 654552, 782561, 878877, 966975, 114823, 134627,
+                    155938, 169343, 178647, 192641, 205220, 283543, 395756, 550439,
+                    671855, 783462, 898176, 971160, 115017, 134829, 156334, 169444,
+                    180533, 193845, 209228, 318637, 397760, 552241, 680957, 789373,
+                    899885, 973770, 115825, 135124, 157336, 169747, 181232, 195041,
+                    212419, 320826, 401422, 562345, 690152, 814649, 901139, 995174,
+                    116726, 137128, 158035, 171633, 181636, 196144, 214019, 330324,
+                    406836, 572045, 706040, 818859, 901442)
+
+
+# Raters
 
 #-------------------------------------------------------------------------------
 # Initialization
-
 # Diffusion-weighted feature code; though in fairness, this is largely just code
 # for loading the feature from a file.
 class DWIFeature(FlatmapFeature):
@@ -95,37 +156,6 @@ features = dict(
 
 # Training Feature Sets.........................................................
 # The base feature-sets we are predicting:
-from .._core import (
-    vaonly_properties,
-    econly_properties,
-    t1only_properties,
-    fnonly_properties)
-t2only_properties = ('myelin',)
-dwonly_properties = ('dwi_OR', 'dwi_VOF')
-full_properties = (t1only_properties + t2only_properties +
-                   dwonly_properties + fnonly_properties)
-# The feature-sets by name.
-input_properties = {
-    'null': ('zeros',),
-    'anat': t1only_properties,
-    't1t2': t1only_properties + t2only_properties,
-    'func': t1only_properties + fnonly_properties,
-    'trac': t1only_properties + dwonly_properties,
-    'not2': t1only_properties + fnonly_properties + dwonly_properties,
-    'nofn': t1only_properties + t2only_properties + dwonly_properties,
-    'nodw': t1only_properties + t2only_properties + fnonly_properties,
-    'full': full_properties
-}
-output_properties = {
-    'area': vaonly_properties,
-    'vent': ('hV4', 'VO1', 'VO2'),
-    'dors': ('V3a', 'V3b', 'IPS0', 'LO1'),
-    'ring': econly_properties,
-    'sect': vaonly_properties + econly_properties,
-}
-# All the feature properties.
-properties = dict(input_properties, **output_properties)
-
 
 #-------------------------------------------------------------------------------
 # Loading or Generating Model Partitions for Training
@@ -230,7 +260,7 @@ partition.cluster_trn_ii = (
 # Loading HCP Datasets
 
 def dataset(inputs, outputs,
-            partition=None, sids=Ellipsis, cache_path=Ellipsis):
+            partition=None, sids=Ellipsis, cache_path=Ellipsis, raters=Ellipsis):
     """Returns one of the HCP datasets used by Benson et al. (2024).
 
     The dataset returned is specified by the first two parameters, `inputs` and
@@ -245,6 +275,7 @@ def dataset(inputs, outputs,
     positional argument). To obtain the training/validation partition used in
     the paper, see the `hcp_partition` function.
     """
+
     from ._datasets import make_datasets
     if sids is Ellipsis:
         from ..config import hcp_sids
@@ -270,10 +301,17 @@ def dataset(inputs, outputs,
         outputs,
         features=features,
         partition=part,
-        cache_path=cache_path)
+        cache_path=cache_path,
+        raters=raters
+    )
     return dsets['trn'] if partition is None else dsets
+
+
 def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
-                 partition=None, include_null=False, include_sect=False):
+                 partition=None, include_null=False, include_sect=False,
+                 input_set=Ellipsis, output_set=Ellipsis,
+                 raters=Ellipsis,
+            ):
     """Returns a dictionary of all HCP datasets used by Benson et al. (2024).
 
     The dictionary returned uses tuples of `(inputs, outputs)` as keys, for
@@ -287,21 +325,49 @@ def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
     positional argument). To obtain the training/validation partition used in
     the paper, see the `hcp_partition` function.
     """
+
+    # parse input and output strings into sets
+    all_inputs=input_properties.keys()
+    all_outputs=output_properties.keys()
+    if input_set is Ellipsis:
+        input_set=all_inputs
+    else:
+        if isinstance(input_set,str):
+            input_set=[input_set]
+        if not all(item in all_inputs for item in input_set):
+            s="., ".join([item for item in input_set if item not in all_inputs])
+            raise ValueError(f"invalid dataset input name(s): " + s)
+
+    if output_set is Ellipsis:
+        output_set=all_outputs
+    else:
+        if isinstance(output_set,str):
+            output_set=[output_set]
+        if not all(item in all_outputs for item in output_set):
+            s="., ".join([item for item in output_set if item not in all_inputs])
+            raise ValueError(f"invalid dataset output name(s): " + s)
+    print(input_set)
+    print(output_set)
+
     return {
         (inp, outp): dataset(
             inp, outp,
             sids=sids,
+            raters=raters,
             partition=partition,
             cache_path=cache_path)
-        for (inp,inputs) in input_properties.items()
-        for (outp,outputs) in output_properties.items()
+        for inp in input_set
+        for outp in output_set
         # We typically skip null and sect because they were never used.
         if (include_null or inp != 'null')
         if (include_sect or outp != 'sect')}
+
 def flatmaps(sid, datasets,
              add_inferred=True, add_prior=True, add_raters=True, add_wang=True,
              dataset_cache_path=Ellipsis,
-             model_cache_path=Ellipsis):
+             model_cache_path=Ellipsis,
+             raters=Ellipsis,
+            ):
     """Returns a nested lazy-map of all the requested evaluation flatmaps.
 
     This function returns flatmaps that are ready to be used for evaluation of
@@ -341,7 +407,10 @@ def flatmaps(sid, datasets,
         sub = add_wang2015(sub)
     if add_raters:
         from ...plot import add_raterlabels
-        sub = add_raterlabels(sub)
+        if raters is Ellipsis:
+            raters=central_raters
+        sub = add_raterlabels(sub,raters)
+
     targ = next(
         target
         for target in ds0.targets
@@ -374,23 +443,23 @@ def flatmaps(sid, datasets,
                 labelsets = {'visual_area': slice(0, len(outp))}
             else:
                 raise ValueError(f"invalid output: {outp}")
-            try:
-                mdl = unet(
-                    inp, outp, 'model',
-                    model_cache_path=model_cache_path)
-                labels = ds.predlabels(
-                    targ, mdl, view=view, labelsets=labelsets)
-                for (k,lbl) in labels.items():
-                    ps[f"{inp}_{k}"] = lbl
-            except Exception:
-                pass
+            mdl = unet(
+                inp, outp, 'model',
+                model_cache_path=model_cache_path)
+            if mdl is None:
+                continue
+
+            labels = ds.predlabels(targ, mdl, view=view, labelsets=labelsets)
+            for (k,lbl) in labels.items():
+                ps[f"{inp}_{k}"] = lbl
         fmaps.append(fmap.with_prop(ps))
     return tuple(fmaps)
 def all_flatmaps(datasets, sids=Ellipsis,
                  add_inferred=True, add_prior=True, add_raters=True,
                  add_wang=True,
                  dataset_cache_path=Ellipsis,
-                 model_cache_path=Ellipsis):
+                 model_cache_path=Ellipsis,
+                 raters=Ellipsis):
     """Generates a lazy-map of all evaluation flatmaps for all HCP subjects.
 
     See also `hcp_flatmaps`."""
@@ -405,5 +474,7 @@ def all_flatmaps(datasets, sids=Ellipsis,
              add_wang=add_wang,
              add_raters=add_raters,
              dataset_cache_path=dataset_cache_path,
-             model_cache_path=model_cache_path)
+             model_cache_path=model_cache_path,
+             raters=raters
+        )
          for sid in sids})

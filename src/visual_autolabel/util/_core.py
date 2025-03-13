@@ -8,6 +8,7 @@
 
 import os
 from collections.abc import Mapping
+from warnings import warn
 
 import numpy as np
 import torch
@@ -120,6 +121,19 @@ def partition_id(obj):
     sids = sorted(trn + val, key=lambda x:x[0])
     pid = int(''.join([x[1] for x in sids]), 2)
     return hex(pid)
+def lookup_sids(dataset):
+    """Returns a list of subject IDs for the given dataset name.
+
+    The only argument, `dataset`, should be either `'hcp'` or `'nyu'`.
+    """
+    if dataset == 'hcp':
+        from ..benson2025.config import hcp_sids
+        return hcp_sids
+    elif dataset == 'nyu':
+        from ..benson2025.config import nyu_sids
+        return nyu_sids
+    else:
+        raise ValueError("unrecognized dataset: {dataset}")
 def partition(sids, how=default_partition):
     """Partitions a list of subject-IDs into a training and validation set.
 
@@ -805,8 +819,21 @@ def forkrun(f, *args, **kwargs):
         finally:
             inp.close()
     return obj
-def filter_options(fn, **opts):
+def filter_options(fn,__handle_unmatched__=None,**opts):
     """Returns a dict of keyword arguments accepted by `fn` from `opts`."""
     from inspect import signature
     sig = signature(fn)
-    return {k: opts[k] for (k,v) in sig.parameters.items() if k in opts}
+    out={k: opts[k] for (k,_) in sig.parameters.items() if k in opts}
+    if not __handle_unmatched__:
+        return out
+
+    um={k: opts[k] for (k,_) in opts.items() if k not in out}
+    if __handle_unmatched__=='error':
+        if len(um) > 0:
+            raise ValueError(f"Unmatched option(s) for {fn.__name__}: {um}")
+    if __handle_unmatched__=='warn':
+        if len(um) > 0:
+            raise warn(f"Unmatched option(s) for {fn.__name__}: {um.keys()}")
+        return out
+    elif __handle_unmatched__=='return':
+        return (out,um)
