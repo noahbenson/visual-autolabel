@@ -15,6 +15,7 @@ import inspect
 import json
 from collections.abc import Mapping
 from numbers import Number
+from functools import partial
 
 import torch
 import numpy as np
@@ -24,6 +25,7 @@ from ..util import (
     is_partition,
     partition as make_partition,
     partition_id,
+    lookup_sids,
     trndata,
     valdata,
     loss as calc_loss,
@@ -31,6 +33,7 @@ from ..util import (
     filter_options)
 from ..image import (
     UNet)
+
 
 #-------------------------------------------------------------------------------
 # Logging
@@ -126,7 +129,10 @@ def train_model(model, optimizer, scheduler, dataloaders,
                 logits=None,
                 bce_weight=0.5,
                 reweight=True,
-                smoothing=1):
+                smoothing=1,
+                _optuna_trial=None,
+                _optuna=None,
+               ):
     """Trains and returns a model based on the various optional arguments.
 
     `train_model(model, optimizer, scheduler, dataloaders)` runs training on the
@@ -180,6 +186,7 @@ def train_model(model, optimizer, scheduler, dataloaders,
     smoothing : number, optional
         The smoothing coefficient `s` to use with the dice-coefficient liss.
         The default is `1`.
+    trial : optuna.trial
 
     Returns
     -------
@@ -199,11 +206,26 @@ def train_model(model, optimizer, scheduler, dataloaders,
     # Log the header.
     log_epoch(None, logger=logger, endl=endl)
     # Now, for each epoch...
+
+    hyperlrn=_optuna_trial is not None
+
+    lrn_bce_weight=ishyperrng(bce_weight)
+    if lrn_bce_weight:
+        lrn_bce_rng=bce_weight
+
+    if _DEBUG:
+        print('cuda',torch.cuda.is_available())
+        print('hyperlrn',hyperlrn)
+
     for epoch in range(num_epochs):
         since = time.time()
         allmetrics = {}
         savestr = ""
         lr0 = optimizer.param_groups[0]['lr']
+
+        if lrn_bce_weight:
+            bce_weight=_optuna_trial.suggest("bce_weight",lrn_bce_rng[0],lrn_bce_rng[1],log=True)
+
         # Each epoch has a training and validation phase
         for phase in ['trn', 'val']:
             if phase == 'trn':
@@ -212,13 +234,21 @@ def train_model(model, optimizer, scheduler, dataloaders,
                 model.eval()   # Set model to evaluate mode.
             metrics = {}
             epoch_samples = 0
+            # iterates over batches
+            # batch items are are iterated from ImageCacheDataset __getitem__ over targets (e.g. rater and subject)
+            # inputs and labels are sets of images
             for (inputs, labels) in dataloaders[phase]:
+                if _DEBUG:
+                    print(inputs.shape)
                 inputs = inputs.to(device)
                 labels = labels.to(device)
                 # Zero the parameter gradients.
                 optimizer.zero_grad()
                 # Calculate the forward model.
                 with torch.set_grad_enabled(phase == 'trn'):
+                    # NOTE bottleneck 2
+                    if _DEBUG:
+                        print('outputs')
                     outputs = model(inputs.float())
                     if logits is None:
                         try:
@@ -234,7 +264,10 @@ def train_model(model, optimizer, scheduler, dataloaders,
                                      reweight=reweight,
                                      metrics=metrics)
                     # backward + optimize only if in training phase
+                    # NOTE bottleneck 1: backward and optimzier.step
                     if phase == 'trn':
+                        if _DEBUG:
+                            print('backward & step')
                         loss.backward()
                         optimizer.step()
                         scheduler.step()
@@ -255,6 +288,11 @@ def train_model(model, optimizer, scheduler, dataloaders,
         time_elapsed = time.time() - since
         log_epoch(allmetrics, epoch, num_epochs, lr0, time_elapsed,
                   endl=savestr, logger=logger)
+        if hyperlrn:
+            _optuna_trial.report(epoch_loss,epoch)
+            if _optuna_trial.should_prune():
+                raise _optuna.exceptions.TrialPruned()
+
         if hlines: log_epoch(Ellipsis, logger=logger, endl=endl)
         if cache_path is not None:
             torch.save(model.state_dict(),
@@ -276,6 +314,7 @@ def _make_dataloaders_and_model(
         # model functions--if they are functions and not preconstructed models
         # or dataloaders.
         kwargs):
+
     # First, make the dataloaders.
     if not is_partition(dataloaders):
         # Dataloaders must be a function if it's not a partition.
@@ -283,42 +322,49 @@ def _make_dataloaders_and_model(
             raise TypeError(
                 'dataloaders must be a partition of DataLoader objects or a'
                 ' callable that constructs such partitions')
-        dataloader_opts = filter_options(dataloaders, **kwargs)
+
+        # parse dataloaders opts
+        dataloader_opts= filter_options(dataloaders,**kwargs)
         if 'dataset_cache_path' in kwargs:
             dataloader_opts['cache_path'] = kwargs['dataset_cache_path']
-        dataloaders = dataloaders(**dataloader_opts)
+            del kwargs['dataset_cache_path']
         for k in dataloader_opts.keys():
             if k in kwargs:
                 del kwargs[k]
+        # make dataloaders
+        dataloaders = dataloaders(**dataloader_opts)
     dl_trn = trndata(dataloaders)
     dl_val = valdata(dataloaders)
+
     # Next, we make the starting model.
     if isinstance(model, torch.nn.Module):
         start_model = model
     else:
         if model is Ellipsis:
             model = UNet
+        # parse model opts
         model_opts = filter_options(model, **kwargs)
+        for k in model_opts.keys():
+            if k in kwargs:
+                del kwargs[k]
+        # make model
         start_model = model(
             dl_trn.dataset.feature_count,
             dl_trn.dataset.segment_count,
             **model_opts)
-        for k in model_opts.keys():
-            if k in kwargs:
-                del kwargs[k]
     # See if we need to initialize the weights.
     init_weights = kwargs.get('init_weights', None)
     if init_weights is not None:
         from pathlib import Path
         if isinstance(init_weights, (str, Path)):
-            weights = torch.load(init_weights,weights_only=True)
+            weights = torch.load(init_weights, weights_only=True)
         else:
             # otherwise, assume the init_weights are the weights dictionary
             weights = init_weights
         start_model.load_state_dict(weights)
     if 'init_weights' in kwargs:
         del kwargs['init_weights']
-    return (dataloaders, start_model)
+    return (dataloaders, start_model,kwargs)
 def build_model(
         # Required options for building the initial model and the dataloaders.
         dataloaders, model,
@@ -338,6 +384,8 @@ def build_model(
         bce_weight=0.5,
         reweight=True,
         smoothing=1,
+        _optuna_trial=None,
+        _optuna=None,
         # All remaining options are filtered into dataloaders and model.
         **kwargs):
     """Creates, trains, and returns a PyTorch model.
@@ -453,6 +501,15 @@ def build_model(
         A 3-tuple of `(trained_model, best_loss, best_dice_loss)`.
 
     """
+    if ishyperrng(lr):
+        lr=_optuna_trial.suggest_float("lr",lr[0],lr[1],log=True);
+    if ishyperrng(gamma):
+        gamma=_optuna_trial.suggest_float("gamma",gamma[0],gamma[1],log=True);
+    if ishyperrng(step_size):
+        step_size=_optuna_trial.suggest_float("step_size",step_size[0],step_size[1],log=True);
+    if ishyperrng(bce_weight):
+        bce_weight=_optuna_trial.suggest_float("bce_weight",bce_weight[0],bce_weight[1],log=True);
+
     allopts = dict(
         kwargs,
         lr=lr, step_size=step_size, gamma=gamma,
@@ -462,19 +519,23 @@ def build_model(
         bce_weight=bce_weight, reweight=reweight,
         smoothing=smoothing)
     # First, create the dataloaders and starting model.
-    (dataloaders, start_model) = _make_dataloaders_and_model(
+    (dataloaders, start_model,_) = _make_dataloaders_and_model(
         dataloaders, model,
         allopts)
+
+
     # Next, create the optimizer.
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, start_model.parameters()),
         lr=lr)
+
     # Next, create the scheduler.
     if step_size is None: step_size = len(dataloaders['trn'])
     scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer,
         step_size=step_size,
         gamma=gamma)
+
     # Prepare for optimization.
     if nthreads is not None:
         import os
@@ -483,10 +544,13 @@ def build_model(
         elif nthreads < 0:
             nthreads = os.cpu_count() + nthreads
         torch.set_num_threads(nthreads)
+
     if nice is not None:
         os.nice(nice)
+
     if device is None:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     start_model = start_model.to(device)
     return train_model(
         start_model, optimizer, scheduler, dataloaders,
@@ -497,10 +561,117 @@ def build_model(
         bce_weight=bce_weight,
         reweight=reweight,
         device=device,
-        hlines=hlines)
+        hlines=hlines,
+        _optuna_trial=_optuna_trial,
+        _optuna=_optuna
+    )
+
+def ishyperrng(param):
+    return hasattr(param, '__len__') and callable(param.__len__) and len(param)==2
+
+def check_any_hyper(kwargs):
+    valid_hyper=('lr','gamma','step_size','bce_weight')
+    for p in valid_hyper:
+        if p in kwargs and ishyperrng(kwargs[p]):
+            return True
+    return False
+
+class _hyperlrnr():
+    best_model=None
+    best_loss = 1e10
+    best_dice = 1e10
+    default_opts={
+        'n_trials':100,
+        'sampler':None, # Defaults to tpe sampler
+        'pruner' :None, # Defaults to median
+        'storage':None, # NOTE that if empty storate will be in memory and not persistent
+        'load_if_exists':True,
+        'study_name':None
+
+    }
+    def __init__(self,optuna,opts):
+        self.opts=opts
+        self.optuna=optuna
+        self.study=optuna.create_study(study_name=self.opts['study_name'],
+                                  sampler=self.opts['sampler'],
+                                  storage=self.opts['storage'],
+                                  pruner =self.opts['pruner'],
+                                  load_if_exists=self.opts['load_if_exists'],
+                                  direction='minimize')
+    @property
+    def name(self):
+        return self.opts['study_name']
+    @property
+    def trials(self):
+        return self.study.trials
+    @property
+    def complete_trials(self):
+        return [t for t in self.study.trials if t.state == self.optuna.trial.TrialState.COMPLETE]
+    @property
+    def pruned_trials(self):
+        return [t for t in self.study.trials if t.state == self.optuna.trial.TrialState.PRUNED]
+    @property
+    def best_params(self):
+        return self.study.best_trial.params
+    @property
+    def best_value(self):
+        return self.study.best_trial.value
+
+    def print_opts(self):
+        for k,v in self.opts.items():
+            print({k,v})
+
+    def print_summary(self):
+        print(self._summary_str)
+
+    def _summary_str(self):
+        return"\n".join([
+            f"Study {self.name} statistics",
+             "  Number of finished trials: ", str(len(self.trials)),
+             "  Number of pruned trials:   ", str(len(self.pruned_trials)),
+             "  Number of complete trials: ", str(len(self.complete_trials)),
+             "  Best trial:                ",
+             "    Value:                   ", self.best_value,
+             "    Params:                  ",
+             "\n".join(["      {}: {}".format(k,v) for k,v in self.best_params.items()])
+        ])
+
+    def make_hyper_objective(self,**kwargs):
+        # nest this object in objective and make 'trial' the only parameter
+        return partial(self.objective,**kwargs)
+
+    def objective(self,trial,**kwargs):
+        (model,loss,dice)=build_model(_optuna_trial=trial,_optuna=self.optuna,**kwargs)
+        if loss < self.best_loss:
+            self.best_model=model
+            self.best_loss=loss
+            self.best_dice=dice
+        return loss
+
+    def optimize(self,**opts):
+        objective=self.make_hyper_objective(**opts,**self.opts)
+        self.study.optimize(objective,n_trials=self.opts['n_trials'])
+
+    @staticmethod
+    def parse_opts(opts):
+        default=_hyperlrnr.default_opts
+        if opts is Ellipsis:
+            opts=default
+
+        for k,v in default.items():
+            if k not in opts or opts[k] is None:
+                opts[k]=v
+
+        if isinstance(opts['storage'],str) and opts['storage'][0]=='@':
+            fname=opts['storage'][1:]
+            with open(fname, 'rt') as fl:
+                opts['storage'] = fl.readline().strip()
+
+        return opts
+
 
 def run_modelplan(modelplan, dataloaders, model,
-                  in_features=None, out_features=None, **kwargs):
+                  in_features=None, out_features=None, model_key=None,**kwargs):
     """Executes a model-plan, which builds and trains a model.
 
     The `run_modelplan` is intended as a way to build and train a model using a
@@ -519,11 +690,18 @@ def run_modelplan(modelplan, dataloaders, model,
     Additionally, `run_modelplan` catches `KeyboardInterrupt` exceptions and
     returns the current best model.
     """
+
+    # filter out hyperlearning params
+    hyperkey=_hyperlrnr.default_opts.keys()
+    hyperlrn_opts0 = {key: kwargs[key] for key in hyperkey  if key     in kwargs}
+    kwargs         = {key: kwargs[key] for key in kwargs    if key not in hyperlrn_opts0}
+    hyperlrn_opts0 = {k:v for k,v in hyperlrn_opts0.items() if v is not None}
+
     # First, create the dataloaders and the model.
     kwargs0 = dict(kwargs)
     kwargs['in_features'] = in_features
     kwargs['out_features'] = out_features
-    (dataloaders, model) = _make_dataloaders_and_model(
+    (dataloaders, model,um_kwargs) = _make_dataloaders_and_model(
         dataloaders,
         model,
         kwargs)
@@ -532,18 +710,53 @@ def run_modelplan(modelplan, dataloaders, model,
         {'dataloaders':dataloaders, 'model':model},
         **kwargs)
     # Extract a few options we need...
-    mkdirs = kwargs.get('mkdirs', True)
-    mkdir_mode = kwargs.get('mkdir_mode', 0o775)
+    mkdirs     = kwargs.pop('mkdirs', True)
+    mkdir_mode = kwargs.pop('mkdir_mode', 0o775)
     # We also use the model cache path and logger if they are provided.
-    model_cache_path = kwargs.get('model_cache_path', None)
+    model_cache_path = kwargs.pop('model_cache_path', None)
+
+    # MOVE?
+    for k in ('sids','features'):
+        if k in um_kwargs:
+            del um_kwargs[k]
+
+
+    # check for any unmatched parameters
+    [_,um_kwargs]=filter_options(build_model,__handle_unmatched__='return',**um_kwargs)
+    if len(um_kwargs) > 0:
+        raise ValueError(f"Unmatched option(s): {um_kwargs.keys()}")
+
     # Prepare for the rounds of training.
     best_dice = 1e10
     best_loss = 1e10
     best_mdl = model # We track best model by dice, not combined loss.
     best_mdl_wts = copy.deepcopy(model.state_dict())
+    optuna=None
     for (ii,step_opts) in enumerate(modelplan):
         # The new instructions are a the passed options, overwritten by the
         # specific model plan step options.
+
+        # check if hyperparam learning
+        hyperlrn=check_any_hyper(step_opts)
+
+        # parse hyperlearn opts
+        if hyperlrn:
+            if optuna is None:
+                import optuna
+
+            # split-out hyperparams from plan
+            hyperlrn_opts = {key: step_opts[key] for key in hyperkey  if key     in step_opts}
+            step_opts     = {key: step_opts[key] for key in step_opts if key not in hyperlrn_opts}
+
+            hyperlrn_opts={**hyperlrn_opts0,**_hyperlrnr.parse_opts(hyperlrn_opts)}
+            if hyperlrn_opts['study_name'] is None:
+                hyperlrn_opts['study_name']=model_key
+
+        # check for any unmatched parameters
+        [_,um_kwargs]=filter_options(build_model,__handle_unmatched__='return',**step_opts)
+        if len(um_kwargs) > 0:
+            raise ValueError(f"Unmatched plan option(s): {um_kwargs.keys()}")
+
         opts = dict(kwargs)
         opts.update(step_opts)
         logger = opts.get('logger', print)
@@ -558,8 +771,17 @@ def run_modelplan(modelplan, dataloaders, model,
             if mkdirs and not os.path.isdir(cpath):
                 os.makedirs(cpath, mode=mkdir_mode, exist_ok=True)
             opts['model_cache_path'] = cpath
+
         # Run the build-model function.
-        (model, loss, dice) = build_model(**opts)
+        if not hyperlrn:
+            (model, loss, dice)=build_model(**opts)
+        else:
+            hl=_hyperlrnr(optuna,hyperlrn_opts)
+            hl.optimize(**opts)
+            dice=hl.best_dice
+            model=hl.best_model
+            loss=hl.best_loss
+
         if dice < best_dice:
             best_dice = dice
             best_mdl = model
@@ -568,11 +790,15 @@ def run_modelplan(modelplan, dataloaders, model,
     best_mdl.load_state_dict(best_mdl_wts)
     return (best_mdl,best_loss,best_dice)
 
+
 def train_until(in_features, out_features, training_plan,
                 model_key=None,
                 until=None,
                 mkdirs=True,
                 mkdir_mode=0o775,
+                resume_type=None,
+                error_on_interrupt=False,
+                _debug=False,
                 **kwargs):
     """Continuously runs the given training plan for models until an interrupt.
 
@@ -602,16 +828,43 @@ def train_until(in_features, out_features, training_plan,
     logger : function or None, optional
         The logging function to use. If `None`, then nothing is logged. The
         default is `print`.
+    resume_type : str or None
+        How to resume training (default `None`).
+            None/'new' - New training session, overwrite previous logs
+            'continue  - Continue previous training, otherwise fail
+            'continue_if_exists' - Continue previous training if possible, otherwise start new training session
+            'exit_if_exists' - exits gracefully if previous training exists
+
     **kwargs
         Additional named parameters are passed along to the `run_modelplan`
         function; these must at a minimum provide for a dataset partition and
         a model.
+
+    How loops are nested:
+        until: train_until
+            in-feats: train_until
+                rounds: run_model_plan
+                    n_trials: train_model (implicitly)
+                        epochs: train_model
+    until    - only saves best model for each round and in-feat,
+               overwrites epochs for each round
+    in-feats - only saves best model for each round for a particular in-feat
+    rounds   - each plan iteration
+    n_trials - for hyper parameters, keeps track of all hyperparameter progress
+               overwrites epochs for each round
+               *recommend only 1 until and 1 in-feats*
     """
+    global _DEBUG
+    _DEBUG=_debug
+
     logger = kwargs.get('logger', print)
-    model_cache_path = kwargs.pop('model_cache_path', None)
+    model_cache_path0 = kwargs.pop('model_cache_path', None)
+    model_cache_path = model_cache_path0
+    # model key
     if model_key is not None:
-        if model_cache_path is not None:
-            model_cache_path = os.path.join(model_cache_path, model_key)
+        if model_cache_path0 is not None:
+            model_cache_path = os.path.join(model_cache_path0, model_key)
+    # in features
     if isinstance(in_features, str):
         in_features = (in_features,)
     if isinstance(in_features, (tuple, list, set)):
@@ -626,6 +879,7 @@ def train_until(in_features, out_features, training_plan,
             in_features[k] = tuple(feats)
     else:
         raise ValueError("in_features must be a list, set, dict, str, or tuple")
+    # out features
     if isinstance(out_features, str):
         out_features = (out_features,)
     elif isinstance(out_features, (tuple, list, set)):
@@ -633,11 +887,12 @@ def train_until(in_features, out_features, training_plan,
     else:
         raise ValueError("out_features must be a list, set, str, or tuple")
     kwargs['out_features'] = out_features
+    # partition
     partition = kwargs.pop('partition', Ellipsis)
     if partition is Ellipsis:
         from ..config import default_partition
         partition = default_partition
-    # Options we need for below.
+    # dump options and plan to json files
     extra_opts = (
         'lr', 'gamma', 'batch_size', 'num_epochs', 'pretrained', 'base_model')
     extra_opts = {
@@ -665,10 +920,30 @@ def train_until(in_features, out_features, training_plan,
                 feature_names=(list(features.keys()) if features else None))
             json.dump(opts, fl)
     dataset_cache_path = kwargs.get('dataset_cache_path', None)
+    # make directories
     if dataset_cache_path is not None:
         if not os.path.isdir(dataset_cache_path) and mkdirs:
             os.makedirs(dataset_cache_path, mkdir_mode, exist_ok=True)
-    training_history = []
+
+
+    # handle previous training history if requested
+    sids=kwargs.get('sids','hcp')
+    if resume_type in ('continue_if_exists','exit_if_exists'):
+        data=load_training(model_key,model_cache_path=model_cache_path0,base_model=kwargs['base_model'],sids=sids,nofail=True)
+        if data is not None and len(data['models'])>0 and resume_type == 'exit_if_exists':
+            print('Previous training history exists, exiting...')
+            return None
+        elif data is None:
+            training_history=[]
+        else:
+            training_history=data['history'].to_dict('records')
+    else:
+        training_history = []
+    if _DEBUG:
+        print('training history')
+        print(training_history)
+
+    to_error=False
     try:
         if logger:
             logger('')
@@ -677,6 +952,10 @@ def train_until(in_features, out_features, training_plan,
             if until is not None and iterno >= until:
                 break
             iterno += 1
+
+            if _DEBUG:
+                print('iterno',interno,'/',until)
+
             # Make one partition for all three minimization types.
             if partition is None:
                 # We regenerate the partition each round; sids is a required
@@ -690,25 +969,28 @@ def train_until(in_features, out_features, training_plan,
             else:
                 part = make_partition(kwargs['sids'], how=partition)
             pid = partition_id(part)
+            # log iteration header
             if logger:
                 els = ('Iteration %d' % iterno, 'Partition ID: %s' % pid)
                 logger('%-15s%70s' % els)
                 logger('=' * 85)
+            # iterate over features
             for (dnm,infeats) in in_features.items():
+                # log feature header
                 if logger:
                     logger('')
                     logger(dnm + ' ' + '-'*(85 - len(dnm) - 1))
                     logger('')
+                # RUN
                 t0 = time.time()
                 (model, loss, dice) = run_modelplan(
                     training_plan,
                     in_features=infeats,
                     model_cache_path=model_cache_path,
                     partition=part,
+                    model_key=model_key,
                     **kwargs)
                 t1 = time.time()
-                row = dict(
-                    input=dnm, loss=loss, dice=dice, training_time=(t1-t0))
                 # See if this one is good enough that it needs to be saved.
                 if model_cache_path is not None:
                     hh = [d for d in training_history if d['input'] == dnm]
@@ -718,9 +1000,13 @@ def train_until(in_features, out_features, training_plan,
                         savepath = os.path.join(
                             model_cache_path, f"best_{dnm}.pt")
                         torch.save(model.state_dict(), savepath)
+                # append history
+                row = dict(
+                    input=dnm, loss=loss, dice=dice, training_time=(t1-t0))
                 training_history.append(row)
                 if logger: logger('')
     except KeyboardInterrupt:
+        to_error=error_on_interrupt
         if logger:
             logger('')
             logger('KeyboardInterrupt caught; ending training.')
@@ -729,26 +1015,17 @@ def train_until(in_features, out_features, training_plan,
         ny.save(
             os.path.join(model_cache_path, "training.tsv"),
             training_history)
+    if to_error:
+        raise
     return training_history
 
-def lookup_sids(dataset):
-    """Returns a list of subject IDs for the given dataset name.
-
-    The only argument, `dataset`, should be either `'hcp'` or `'nyu'`.
-    """
-    if dataset == 'hcp':
-        from ..benson2025.config import hcp_sids
-        return hcp_sids
-    elif dataset == 'nyu':
-        from ..benson2025.config import nyu_sids
-        return nyu_sids
-    else:
-        raise ValueError("unrecognized dataset: {dataset}")
 def load_training(model_key,
                   model_cache_path=None,
                   partition_log_marker='Partition ID:',
                   base_model='resnet18',
-                  sids='hcp'):
+                  sids='hcp',
+                  nofail=False,
+                 ):
     """Loads data from a directory written to during `train_until`.
 
     `load_training(model_key)` can be used to load data saved by a call to
@@ -772,36 +1049,45 @@ def load_training(model_key,
         a tuple of `(trn_sids, val_sids)`. The plan and options are the
         parameters given to the `train_until` function.
     """
+    # path
     if model_cache_path is None:
         path = model_key
     else:
         path = os.path.join(model_cache_path, model_key)
+    if nofail and not os.path.isdir(path):
+        return None
+    # load hist
     hist_path = os.path.join(path, 'training.tsv')
+    if nofail and not os.path.isfile(hist_path):
+        return None
     hist = ny.load(hist_path) if os.path.isfile(hist_path) else None
+    # load opts
     opts_path = os.path.join(path, 'options.json')
     if os.path.isfile(opts_path):
         with open(opts_path, 'rt') as fl:
             opts = json.load(fl)
     else:
         opts = None
+    # load plan
     plan_path = os.path.join(path, 'plan.json')
     if os.path.isfile(plan_path):
         with open(plan_path, 'rt') as fl:
             plan = json.load(fl)
     else:
         plan = None
+    # load best models
     mdls = {}
     for fl in os.listdir(path):
         if fl.startswith('best_') and fl.endswith('.pt'):
             flnm = os.path.join(path, fl)
-            state = torch.load(flnm,weights_only=False)
+            state = torch.load(flnm, weights_only=True)
             #nfeat = state['base_model.conv1.weight'].shape[1]
             nfeat = state['layer0.0.weight'].shape[1]
             nsegm = state['conv_last.weight'].shape[0]
             mdl = UNet(nfeat, nsegm, base_model=base_model)
             mdl.load_state_dict(state)
             mdls[fl[5:-3]] = mdl
-    # Load in the partition as well.
+    # load in the partition
     log_path = os.path.join(path, 'training.log')
     sids = lookup_sids(sids)
     try:
