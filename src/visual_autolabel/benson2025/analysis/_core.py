@@ -21,6 +21,7 @@ import neuropythy as ny
 
 from ...util import dice_scores
 from ...image import UNet
+from ..hcp._datasets import CVDLinesDataset
 
 
 #-------------------------------------------------------------------------------
@@ -60,7 +61,7 @@ def analfile(analysis_path, *args, mkdirs=False, mkdir_mode=0o775):
 #-------------------------------------------------------------------------------
 # Score Functions
 
-def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None):
+def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None,raters='central'):
     """Score the given hemisphere or subject and return a DataFrame summary.
 
     The Dice-Sørensen coefficient is used to score similarity between visual
@@ -82,6 +83,7 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None):
         Data that should be used to initialize each row of the returned
         dataframe object. This argument effectively adds columns whose rows all
         have the same value to the returned dataframe object.
+        e.g. dict(dataset=dataset, sid=sid)
     smooth : float, optional
         The smoothing to apply to the Dice coefficient calculation. See the
         `dice_loss` function for more information. The default is 0.
@@ -98,7 +100,7 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None):
     elif isinstance(pair_tags, str):
         pair_tags = pair_tags.lower()
         if pair_tags == 'hcp':
-            pair_tags = calc_scores.hcp_default_pair_tags
+            pair_tags = gen_hcp_default_pair_tags(raters)
         if pair_tags == 'nyu':
             pair_tags = calc_scores.nyu_default_pair_tags
     if suffix.startswith('_'):
@@ -120,12 +122,15 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None):
                 hem, suffix,
                 rowinit=dict(rowinit, hemisphere=h),
                 smooth=smooth,
-                pair_tags=pair_tags)
+                pair_tags=pair_tags,
+                raters=raters
+            )
              for (h,hem) in zip(('lh','rh'), hems)],
             ignore_index=True)
     rowinit = dict(rowinit, parcellation=key)
     props = [p for p in hem.properties.keys() if p.endswith(suffix)]
     rows = []
+    print(props)
     for p1 in props:
         k1 = p1.split("_")[0]
         lbl1 = hem.prop(p1)
@@ -167,27 +172,64 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None):
                         label='mean',
                         score=np.mean(scores)))
     return pd.DataFrame(rows)
-calc_scores.hcp_default_pair_tags = {
-    (kk1, kk2): tag
-    for pairings in [
-         # Gold-standard Inter-rater Reliability.
-        {'A1': (('A2','A3','A4'), 'rely'),
-         'A2': (('A3','A4'), 'rely'),
-         'A3': (('A4',), 'rely'),
-         # Model Prediction Accuracies.
-         'anat': (('A1','A2','A3','A4'), 'anat'),
-         'full': (('A1','A2','A3','A4'), 'full'),
-         'func': (('A1','A2','A3','A4'), 'func'),
-         'inf' : (('A1','A2','A3','A4'), 'inf'),
-         'nodw': (('A1','A2','A3','A4'), 'nodw'),
-         'nofn': (('A1','A2','A3','A4'), 'nofn'),
-         'not2': (('A1','A2','A3','A4'), 'not2'),
-         'prior':(('A1','A2','A3','A4'), 'prior'),
-         't1t2': (('A1','A2','A3','A4'), 't1t2'),
-         'trac': (('A1','A2','A3','A4'), 'trac')}]
-    for (k1,(k2s,tag)) in pairings.items()
-    for k2 in k2s
-    for (kk1,kk2) in ((k1,k2), (k2,k1))}
+
+
+def gen_hcp_default_pair_tags(raters):
+    if raters is None:
+        raters='central'
+    if isinstance(raters,str):
+        raters=CVDLinesDataset.region_raters[raters]
+
+    # Gold-standard Inter-rater Reliability.
+    d1={}
+    for r in raters:
+        d1[r]=(tuple(rater for rater in raters if rater not in d1 and rater != r),'rely')
+        if len(d1[r][0])==1:
+            break
+    d2={
+        'anat': (raters, 'anat'),
+        'full': (raters, 'full'),
+        'func': (raters, 'func'),
+        'inf' : (raters, 'inf'),
+        'nodw': (raters, 'nodw'),
+        'nofn': (raters, 'nofn'),
+        'not2': (raters, 'not2'),
+        'prior':(raters, 'prior'),
+        't1t2': (raters, 't1t2'),
+        'trac': (raters, 'trac')}
+    d={**d1,**d2}
+    return {
+        (kk1, kk2): tag
+        for pairings in [d]
+        for (k1,(k2s,tag)) in pairings.items()
+        for k2 in k2s
+        for (kk1,kk2) in ((k1,k2), (k2,k1))}
+
+#return {
+#    (kk1, kk2): tag
+#    for pairings in [
+#         # Gold-standard Inter-rater Reliability.
+#        {'A1': (('A2','A3','A4'), 'rely'),
+#         'A2': (('A3','A4'), 'rely'),
+#         'A3': (('A4',), 'rely'),
+#         # Model Prediction Accuracies.
+#         'anat': (raters, 'anat'),
+#         'full': (raters, 'full'),
+#         'func': (raters, 'func'),
+#         'inf' : (raters, 'inf'),
+#         'nodw': (raters, 'nodw'),
+#         'nofn': (raters, 'nofn'),
+#         'not2': (raters, 'not2'),
+#         'prior':(raters, 'prior'),
+#         't1t2': (raters, 't1t2'),
+#         'trac': (raters, 'trac')}]
+#    for (k1,(k2s,tag)) in pairings.items()
+#    for k2 in k2s
+#    for (kk1,kk2) in ((k1,k2), (k2,k1))}
+
+
+calc_scores.hcp_default_pair_tags=gen_hcp_default_pair_tags('central')
+
 calc_scores.nyu_default_pair_tags = {
     ('anat',  'gold'):  'anat',
     ('func',  'gold'):  'func',
@@ -197,6 +239,7 @@ calc_scores.nyu_default_pair_tags = {
     ('gold',  'func'):  'func',
     ('gold',  'fnyu'):  'fnyu',
     ('gold',  'prior'): 'prior'}
+
 def scores(dataset, sid,
            overwrite=False,
            analysis_path=Ellipsis,
@@ -204,7 +247,17 @@ def scores(dataset, sid,
            model_cache_path=Ellipsis,
            mkdirs=True,
            mkdir_mode=0o775,
-           fork=True):
+           fork=True,
+           input_set=Ellipsis,
+           output_set=Ellipsis,
+           output_partitions=Ellipsis,
+           raters=Ellipsis,
+           flatmap_args={},
+           model_key=None,
+           multiproc=True,
+           _datasets=None,
+           _module=None
+          ):
     """Returns the scores dataframe for a single subject from a dataset.
 
     The Dice-Sørensen coefficient is used to score similarity between visual
@@ -249,23 +302,43 @@ def scores(dataset, sid,
         `fork` to `True` can slow the calculation very slightly, but it prevents
         cached data from the calculations from accumulating in the calling
         thread. The default is `True`.
+    raters : list/tuple, optional
+        List of raters used for calculating flatmaps and scores
+        defaults to those used in benson 2025 ['A1','A2','A3','A4']
+    flatmap_args : dict, optional
+        which extra flatmap evals
+        {add_inferred:True, add_prior:True, add_raters:True, add_wang:True}
     """
     dataset = dataset.upper()
-    if dataset == 'HCP':
-        from .. import hcp
-        module = hcp
-    elif dataset == 'NYU':
-        from .. import nyu
-        module = nyu
+    if _module is None:
+        if dataset == 'HCP':
+            from .. import hcp
+            module = hcp
+        elif dataset == 'NYU':
+            from .. import nyu
+            module = nyu
+        else:
+            raise ValueError("dataset must be 'hcp' or 'nyu'")
     else:
-        raise ValueError("dataset must be 'hcp' or 'nyu'")
-    # If the subject has already been cached, we just return it.
+        module=_module
+
+    if model_key:
+        args=('dice', f'{dataset}_{model_key}', f"{sid}.csv")
+    else:
+        args=('dice', dataset, f"{sid}.csv")
     sid_filename = analfile(
-        analysis_path, 'dice', dataset, f"{sid}.csv",
+        analysis_path,*args,
         mkdirs=mkdirs,
         mkdir_mode=mkdir_mode)
+
+    # If the subject has already been cached, we just return it.
     if not overwrite and sid_filename.is_file():
         return pd.read_csv(sid_filename, keep_default_na=False)
+        # XXX Check to see if everything is in there
+
+    if output_partitions is Ellipsis:
+        output_partitions=('area','ring')
+
     if fork:
         # This is a simple workaround for memory leaks: at the cost of a bit of
         # time to fork the process, we avoid loading and caching subject data in
@@ -280,30 +353,58 @@ def scores(dataset, sid,
             model_cache_path=model_cache_path,
             mkdirs=mkdirs,
             mkdir_mode=mkdir_mode,
-            fork=False)
+            fork=False,
+            input_set=input_set,
+            output_set=output_set,
+            raters=raters,
+            flatmap_args=flatmap_args,
+            model_key=model_key,
+            multiproc=multiproc,
+        )
+
+    if dataset=='HCP':
+        rkw={'raters':raters}
+    else:
+        rkw={}
+
+    # make datset if it was not passed
+    _datasets = module.all_datasets(
+        cache_path=dataset_cache_path,
+        input_set=input_set,
+        output_set=output_set,
+        multiproc=multiproc,
+        **rkw
+    )
     # Now make the flatmaps and create the dataframes.
-    datasets = module.all_datasets(
-        cache_path=dataset_cache_path)
     fmaps = module.flatmaps(
-        sid, datasets,
+        sid, _datasets,
         dataset_cache_path=dataset_cache_path,
-        model_cache_path=model_cache_path)
+        model_cache_path=model_cache_path,
+        model_key=model_key,
+        **rkw,
+        **flatmap_args
+    )
+
+    # We calculate visual areas for both datasets.
     rowinit = dict(dataset=dataset, sid=sid)
     dfs = []
-    # We calculate visual areas for both datasets.
-    df = calc_scores(
-        fmaps, 'area',
-        rowinit=rowinit,
-        pair_tags=dataset.lower())
-    dfs.append(df)
-    # We calculate the visual ring for just the HCP.
-    if dataset == 'HCP':
+
+    if isinstance(output_partitions,str):
+        output_partitions=(output_partitions,)
+
+    for op in output_partitions:
+        # We calculate the visual ring for just the HCP.
+        if op == 'ring' and dataset == 'NYU':
+            continue
         df = calc_scores(
-            fmaps, 'ring',
+            fmaps, op,
             rowinit=rowinit,
-            pair_tags=dataset.lower())
+            pair_tags=dataset.lower(),
+            raters=raters
+        )
         dfs.append(df)
     df = pd.concat(dfs, ignore_index=True)
+
     # If we have a cache path, save it.
     if sid_filename and (overwrite or not sid_filename.is_file()):
         df.to_csv(sid_filename, index=False)
@@ -315,7 +416,15 @@ def all_scores(dataset='all',
                model_cache_path=Ellipsis,
                mkdirs=True,
                mkdir_mode=0o775,
-               fork=True):
+               fork=True,
+               input_set=Ellipsis,
+               output_set=Ellipsis,
+               output_partitions=Ellipsis,
+               raters=Ellipsis,
+               flatmap_args={},
+               model_key=None,
+               multiproc=True
+              ):
     """Returns a dataframe of all model comparisons across all subjects.
 
     This function loads (or calculates) then returns the requested dataframe of
@@ -355,6 +464,11 @@ def all_scores(dataset='all',
         `forkrun` to `True` can slow the calculation very slightly, but it
         prevents cached data from the calculations from accumulating in the
         calling thread. The default is `True`.
+    output_set:
+    output_partitions:
+    raters : list/tuple, optional
+        List of raters used for calculating flatmaps and scores
+        defaults to those used in benson 2025 ['A1','A2','A3','A4']
     """
     opts = dict(
         overwrite=overwrite,
@@ -363,7 +477,15 @@ def all_scores(dataset='all',
         model_cache_path=model_cache_path,
         mkdirs=mkdirs,
         mkdir_mode=mkdir_mode,
-        fork=fork)
+        fork=fork,
+        input_set=input_set,
+        output_set=output_set,
+        output_partitions=output_partitions,
+        raters=raters,
+        flatmap_args=flatmap_args,
+        model_key=model_key,
+        multiproc=multiproc
+    )
     # First thing is to figure out if we can just load the datafile.
     dataset = dataset.lower()
     if dataset == 'all':
@@ -372,22 +494,50 @@ def all_scores(dataset='all',
             ignore_index=True)
     elif dataset == 'hcp':
         from ..config import hcp_sids
+        from .. import hcp
+        module = hcp
         sids = hcp_sids
     elif dataset == 'nyu':
         from ..config import nyu_sids
+        from .. import nyu
+        module = nyu
         sids = nyu_sids
     else:
         raise ValueError("dataset must be 'hcp', 'nyu', or 'all'")
-    # If the dataset has already been cached, we just return it.
+
+    if model_key:
+        all_dice_fname=f"{dataset}_{model_key}_dice.csv"
+    else:
+        all_dice_fname=f"{dataset}dice.csv"
     filename = analfile(
-        analysis_path, f"{dataset}dice.csv",
+        analysis_path, all_dice_fname,
         mkdirs=mkdirs,
         mkdir_mode=mkdir_mode)
+
+    # If the analysis has already been cached, we just return it.
     if not overwrite and filename and filename.is_file():
         return pd.read_csv(filename, keep_default_na=False)
-    # Otherwise, we're going to calculate everything...
+        # XXX Check to see if everything is in there
+
+    # make datasets
+    if dataset == 'hcp':
+        _datasets = module.all_datasets(
+            cache_path=dataset_cache_path,
+            input_set=input_set,
+            output_set=output_set,
+            multiproc=multiproc,
+            raters=raters
+        )
+    elif dataset == 'nyu':
+        _datasets = module.all_datasets(
+            cache_path=dataset_cache_path,
+            input_set=input_set,
+            output_set=output_set,
+        )
+
+    # Otherwise, we're going to load individual files or calculate everything...
     df = pd.concat(
-        [scores(dataset, sid, **opts) for sid in sids],
+        [scores(dataset, sid,_datasets=_datasets,_module=module, **opts) for sid in sids],
         ignore_index=True)
     if filename and (overwrite or not filename.is_file()):
         df.to_csv(filename, index=False)
@@ -406,7 +556,7 @@ def _to_model_cache_pseudo_path(model_cache_path):
     if not ny.util.is_pseudo_path(model_cache_path):
         model_cache_path = ny.util.pseudo_path(model_cache_path)
     return model_cache_path
-def unet(inputs, outputs, part='model', model_cache_path=None):
+def unet(inputs, outputs, part='model', model_cache_path=None, model_key=None):
     """Loads a UNet from the Benson, Song, and Winawer (2024) dataset.
 
     Parameters
@@ -473,8 +623,6 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
         `'history'`.
     """
     parts = ('model','options','plan','history')
-    # Parse the model_cache_path first.
-    model_cache_path = _to_model_cache_pseudo_path(model_cache_path)
     # Next parse the part argument.
     if not isinstance(part, str):
         if part is Ellipsis:
@@ -483,30 +631,58 @@ def unet(inputs, outputs, part='model', model_cache_path=None):
             return tuple(
                 unet(
                     inputs, outputs, part=p,
-                    model_cache_path=model_cache_path)
+                    model_cache_path=model_cache_path,
+                    model_key=model_key
+                )
                 for p in part)
         elif isinstance(part, Set):
             return {
                 k: unet(
                     inputs, outputs, part=k,
-                    model_cache_path=model_cache_path)
+                    model_cache_path=model_cache_path,
+                    model_key=model_key
+                )
                 for k in part}
         else:
             raise TypeError(f'unrecognized type for part option: {type(part)}')
+    # Parse the model_cache_path first.
+    model_cache_path = _to_model_cache_pseudo_path(model_cache_path)
     # Now we can descend into the models' directory and load the part.
-    pp = model_cache_path.subpath(f'benson2025_{inputs}_{outputs}')
+
+    if model_key and model_cache_path.find(model_key):
+        pp = model_cache_path.subpath(model_key)
+    elif model_cache_path.find(f'{inputs}_{outputs}'):
+        pp = model_cache_path.subpath(f'{inputs}_{outputs}')
+    else:
+        return None
+
     part = part.lower()
     if part == 'all':
         return unet(
             inputs, outputs, part=Ellipsis,
-            model_cache_path=model_cache_path)
+            model_cache_path=model_cache_path,
+            model_key=model_key
+        )
     elif part == 'model':
         # We need to load the options to get the base model.
         opts = unet(
             inputs, outputs, 'options',
-            model_cache_path=model_cache_path)
+            model_cache_path=model_cache_path,
+            model_key=model_key
+        )
         base_model = opts['base_model']
-        state = torch.load(pp.local_path('model.pt'))
+
+        # find model file
+        if pp.find('model.pt') is not None:
+            sp=pp.local_path('model.pt');
+        else:
+            fl = next((f for f in pp.listpath() if f.endswith(".pt")), None)
+            if fl is None:
+                return None
+            else:
+                sp=pp.local_path(fl)
+
+        state = torch.load(sp,weights_only=True)
         nfeat = state['layer0.0.weight'].shape[1]
         nsegm = state['conv_last.weight'].shape[0]
         mdl = UNet(nfeat, nsegm, base_model=base_model)

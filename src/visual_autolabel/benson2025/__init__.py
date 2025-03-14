@@ -14,6 +14,8 @@ from . import config
 from . import hcp
 from . import nyu
 
+from ._core import *
+
 from .analysis import (
     scores,
     all_scores,

@@ -17,7 +17,7 @@ import numpy as np
 import neuropythy as ny
 
 from ...image import FlatmapFeature, NullFeature
-from ...plot import add_inferred, add_prior, add_raterlabels
+from ...plot import add_wang2015, add_inferred, add_prior, add_raterlabels
 from .._core import (
     caonly_properties,
     vaonly_properties,
@@ -48,8 +48,8 @@ input_properties = {
 }
 output_properties = {
     'area': caonly_properties,
-    'vent': vaonly_properties,
-    'dors': daonly_properties,
+    'ventral': vaonly_properties,
+    'dorsal': daonly_properties,
     'ring': econly_properties,
     'sect': caonly_properties + econly_properties,
 }
@@ -260,7 +260,7 @@ partition.cluster_trn_ii = (
 # Loading HCP Datasets
 
 def dataset(inputs, outputs,
-            partition=None, sids=Ellipsis, cache_path=Ellipsis, raters=Ellipsis):
+            partition=None, sids=Ellipsis, cache_path=Ellipsis, raters=Ellipsis, multiproc=True):
     """Returns one of the HCP datasets used by Benson et al. (2024).
 
     The dataset returned is specified by the first two parameters, `inputs` and
@@ -302,6 +302,7 @@ def dataset(inputs, outputs,
         features=features,
         partition=part,
         cache_path=cache_path,
+        multiproc=multiproc,
         raters=raters
     )
     return dsets['trn'] if partition is None else dsets
@@ -311,6 +312,7 @@ def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
                  partition=None, include_null=False, include_sect=False,
                  input_set=Ellipsis, output_set=Ellipsis,
                  raters=Ellipsis,
+                 multiproc=True
             ):
     """Returns a dictionary of all HCP datasets used by Benson et al. (2024).
 
@@ -344,18 +346,16 @@ def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
         if isinstance(output_set,str):
             output_set=[output_set]
         if not all(item in all_outputs for item in output_set):
-            s="., ".join([item for item in output_set if item not in all_inputs])
+            s="., ".join([item for item in output_set if item not in all_outputs])
             raise ValueError(f"invalid dataset output name(s): " + s)
-    print(input_set)
-    print(output_set)
-
     return {
         (inp, outp): dataset(
             inp, outp,
             sids=sids,
             raters=raters,
             partition=partition,
-            cache_path=cache_path)
+            cache_path=cache_path,
+            multiproc=multiproc)
         for inp in input_set
         for outp in output_set
         # We typically skip null and sect because they were never used.
@@ -367,6 +367,7 @@ def flatmaps(sid, datasets,
              dataset_cache_path=Ellipsis,
              model_cache_path=Ellipsis,
              raters=Ellipsis,
+             model_key=None,
             ):
     """Returns a nested lazy-map of all the requested evaluation flatmaps.
 
@@ -403,14 +404,13 @@ def flatmaps(sid, datasets,
         from ...plot import add_prior
         sub = add_prior(sub)
     if add_wang:
-        from ...plot import add_wang2015
         sub = add_wang2015(sub)
     if add_raters:
-        from ...plot import add_raterlabels
-        if raters is Ellipsis:
+        if raters in (Ellipsis,None):
             raters=central_raters
         sub = add_raterlabels(sub,raters)
 
+    # target = rater + subject
     targ = next(
         target
         for target in ds0.targets
@@ -427,25 +427,27 @@ def flatmaps(sid, datasets,
             for p in hem.properties.keys()
             if p not in fmap.properties}
         for ((inp,outp),ds) in datasets.items():
-            if outp == 'area':
+            if outp in ('central','area'):
                 labelsets = {'visual_area': slice(0,3)}
+            elif outp == 'ventral':
+                labelsets = {'visual_area': slice(0,3)}
+            elif outp == 'dorsal':
+                labelsets = {'visual_area': slice(0,4)}
             elif outp == 'ring':
                 labelsets = {'visual_ring': slice(0,5)}
             elif outp == 'sect':
                 labelsets = {
                     'visual_area': slice(0,3),
                     'visual_ring': slice(3,8)}
-            elif outp == 'vent':
-                labelsets = {'visual_area': slice(0,3)}
-            elif outp == 'dors':
-                labelsets = {'visual_area': slice(0,4)}
             elif isinstance(outp, tuple):
                 labelsets = {'visual_area': slice(0, len(outp))}
             else:
                 raise ValueError(f"invalid output: {outp}")
             mdl = unet(
                 inp, outp, 'model',
-                model_cache_path=model_cache_path)
+                model_cache_path=model_cache_path,
+                model_key=model_key
+            )
             if mdl is None:
                 continue
 

@@ -83,7 +83,7 @@ def add_inferred(sub, path=None, prefix='inf_'):
 def add_prior(sub, prefix='prior_'):
     """Given a subject, adds the retinotopic prior and returns it.
 
-    This function calculates the retinotopic prior for the subejct,
+    This function calculates the retinotopic prior for the subject,
     adds the prior maps to the subject's hemispheres, and returns
     the new subject.
     """
@@ -134,7 +134,7 @@ def add_raterlabels(sub,raters):
     """Returns a copy of the given subject with labels as drawn by raters.
     """
 
-    from ..benson2025.hcp import HCPImageCache
+    from ..benson2025.hcp import CVDLinesDataset,HCPImageCache
 
     lbldata = ny.data['hcp_lines'].subject_labels
     sid = int(sub.name)
@@ -142,7 +142,7 @@ def add_raterlabels(sub,raters):
     for h in ['lh','rh']:
         ll = {}
         for anat in raters:
-            if anat in HCPImageCache._central_raters:
+            if anat in CVDLinesDataset.central_raters:
                 lbldat = lbldata[anat].get(sid)
                 if lbldat is None: lbldat = {}
                 lbldat = lbldat.get(h)
@@ -157,15 +157,15 @@ def add_raterlabels(sub,raters):
                 eccdat = sectors_to_rings(sctdat, areadat)
                 ll[f'{anat}_visual_ring'] = eccdat
             # Ventral and dorsal labels.
-            if  anat in HCPImageCache._ventral_raters:
-                lbl = HCPImageCache._get_vd_labels(anat, sid, h)
+            if  anat in CVDLinesDataset.ventral_raters:
+                lbl = HCPImageCache.make_flatmap(anat, sid, h)
                 if lbl is None:
                     continue
                 k = 'V' + anat[1:]
                 lbl[lbl > 6] = 0
                 ll[f'{k}_visual_area'] = lbl
-            if anat in HCPImageCache._dorsal_raters:
-                lbl = HCPImageCache._get_vd_labels(anat, sid, h)
+            if anat in CVDLinesDataset.dorsal_raters:
+                lbl = HCPImageCache.make_flatmap(anat, sid, h)
                 if lbl is None:
                     continue
                 k = 'D' + anat[1:]

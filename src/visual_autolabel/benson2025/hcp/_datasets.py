@@ -61,8 +61,7 @@ config.declare('hcp_vd_lines_auto_download', environ_name='HCP_VD_LINES_AUTO_DOW
 @pimms.immutable
 class CVDLinesDataset(HCPMetaDataset):
     """
-    Central Ventral Dorsal Lines Dataset
-    NOTE:  an abstract class
+    Ventral and Dorsal Lines dataset
     """
 
     # TODO
@@ -70,6 +69,7 @@ class CVDLinesDataset(HCPMetaDataset):
 
     subject_list=subject_list
 
+    # convert from anatomist (VA convention) to raters (crcns convention)
     anatomist2rater ={
         'A11':'R1',
 
@@ -84,20 +84,20 @@ class CVDLinesDataset(HCPMetaDataset):
         'A10':'R9'
     }
 
+    # TODO updtate to central_anatomists, ventral...
     central_raters = ('A1', 'A2', 'A3', 'A4')
     ventral_raters = ('A7', 'A8', 'A11', 'A12', 'A13')
     dorsal_raters  = ('A5', 'A6', 'A9', 'A10', 'A11')
     region_raters  = {'central':central_raters,'ventral':ventral_raters, 'dorsal':dorsal_raters}
 
-    _vd_raters=ventral_raters + dorsal_raters
+    _vd_raters=central_raters + ventral_raters + dorsal_raters
     _properties=['labels']
-    _vd=('ventral','dorsal')
+    _vd=('central','ventral','dorsal')
 
     mean_anatomist_name = 'mean'
     mean_subject_name   = 999999
     mean_sampling_resolution = 500
     anatomist_list=tuple(sorted(set(ventral_raters + dorsal_raters)))
-    full_anatomist_list = anatomist_list + (mean_anatomist_name,)
 
     def __init__(self,
                  cache_directory=Ellipsis, create_mode=0o775, create_directories=True,
@@ -130,8 +130,23 @@ class CVDLinesDataset(HCPMetaDataset):
                                 create_mode=create_mode,
                                 meta_data=meta_data,
                                 cache_required=True)
+
+    #@pimms.param
+    #def anatomist_list(al):
+    #    return al
+
+    #@pimms.value
+    #def full_anatomist_list(cls,anatomist_list):
+    #    '''
+    #    list of raters given a class definiton of cls.anatomist_list
+    #    '''
+    #    return anatomist_list + (cls.mean_anatomist_name,)
+
     @pimms.value
     def raters_list(cls):
+        '''
+        list of raters given a class definiton of cls.anatomist_list
+        '''
         return (cls.anatomist2rater[item] for item in cls.anatomist_list)
 
     @pimms.param
@@ -265,17 +280,23 @@ class CVDLinesDataset(HCPMetaDataset):
 
 @pimms.immutable
 class VentralLinesDataset(CVDLinesDataset):
+    """
+    Just the ventral dataset
+    """
     anatomist_list=CVDLinesDataset.ventral_raters
-    full_anatomist_list = anatomist_list + (CVDLinesDataset.mean_anatomist_name,)
+    full_anatomist_list=anatomist_list + (CVDLinesDataset.mean_anatomist_name,)
     _vd=('ventral',)
 
 @pimms.immutable
 class DorsalLinesDataset(CVDLinesDataset):
+    """
+    Just the dorsal dataset
+    """
     anatomist_list=CVDLinesDataset.dorsal_raters
-    full_anatomist_list = anatomist_list + (CVDLinesDataset.mean_anatomist_name,)
+    full_anatomist_list=anatomist_list + (CVDLinesDataset.mean_anatomist_name,)
     _vd=('dorsal',)
 
-add_dataset('hcp_cvd_lines',      lambda:CVDLinesDataset().persist())
+add_dataset('hcp_cvd_lines',     lambda:CVDLinesDataset().persist())
 add_dataset('hcp_ventral_lines', lambda:VentralLinesDataset().persist())
 add_dataset('hcp_dorsal_lines',  lambda:DorsalLinesDataset().persist())
 
@@ -418,11 +439,14 @@ class HCPImageCache(BilateralFlatmapImageCache):
         return (rater, sid)
 
     def __getitem__(self, targ_feat):
+        """
+        overloaded from ImageCache
+        fixes the issue where rater and feature determine filname for all features, instead of those that just require a feature
+        if only requires a feature, looks up that feature for rater A1
+        """
         (target_id, feature_name) = targ_feat
         skey=tuple("S"+item for item in visual_area_label_key)
         if not (feature_name in visual_area_label_key or bool(re.fullmatch(r'E[0-9]+',feature_name)) or feature_name.startswith(skey)):
-        #    target_id['rater']='A1'
-        #if feature_name in ('myelin'):
             id=target_id.copy()
             id['rater']='A1'
         else:
@@ -433,13 +457,6 @@ class HCPImageCache(BilateralFlatmapImageCache):
     def cache_filename(self, target, feature, view=None):
         rater = target['rater']
         subject = target['subject']
-
-        #cr=CVDLinesDataset.central_raters
-        #br=CVDLinesDataset.dorsal_raters + CVDLinesDataset.dorsal_raters
-        #ba=vaonly_properties + daonly_properties
-        #if feature in ba and rater in cr and rater not in br:
-        #    #feature=visual_area_neighbors[feature]
-        #    feature='V3'
 
         if view is not None:
             raise ValueError(f'{self.__class__}.cache_filename does not use `view`')
@@ -457,24 +474,8 @@ class HCPImageCache(BilateralFlatmapImageCache):
         # Fix the properties now, if needed:
         (x,y,z) = hem.surface('midgray').coordinates
         hem = hem.with_prop(midgray_x=x, midgray_y=y, midgray_z=z)
-        print(1)
         if rater is not None and rater != 'mean':
             # Get the appropriate data from the dataset.
-
-            # Get the appropriate data from the dataset.
-            #if rater in ('A1', 'A2', 'A3', 'A4'):
-            #    dat = ny.data['hcp_lines'].subject_labels[rater][sid][h]
-            #    va = dat['visual_area']
-            #    vs = dat['visual_sector']
-            #else:
-            #    va = np.zeros(hem.vertex_count, dtype=int)
-            #    vs = np.zeros(hem.vertex_count, dtype=int)
-            ## We also need the ventral and dorsal labels.
-            #extra_labels = self._get_vd_labels(rater, sid, h)
-            #if extra_labels is not None:
-            #    va = np.array(va)
-            #    ii = (va == 0)
-            #    va[ii] = extra_labels[ii]
 
             dat=[None,None,None]
             va = np.zeros((hem.vertex_count,3), dtype=int)
@@ -491,7 +492,6 @@ class HCPImageCache(BilateralFlatmapImageCache):
 
             va=va[np.arange(va.shape[0]),idx]
             vs=vs[np.arange(vs.shape[0]),idx]
-            print(sum(va))
 
             hem = hem.with_prop(
                 visual_area=va,
@@ -553,7 +553,6 @@ class HCPDataset(ImageCacheDataset):
         else:
             return opts
 
-
     @staticmethod
     def parse_opts(opts):
         # pri_args: arguments obtained from elsewhere that receive priority
@@ -590,12 +589,10 @@ class HCPDataset(ImageCacheDataset):
 
         return (inputs,outputs,opts)
 
-
-
     @staticmethod
-    def from_file(opts_filename,exit_on_error=False,hcp_restricted_path=None,**kwargs):
+    def from_file(opts_filename,exit_on_error=False,**kwargs):
 
-        (inputs,outputs,opts)=HCPDataset.load_opts(opts_filename,exit_on_error=exit_on_error,hcp_restricted_path=hcp_restricted_path)
+        (inputs,outputs,opts)=HCPDataset.load_opts(opts_filename,exit_on_error=exit_on_error)
 
         to_rm=['until','base_model','model_cache_path','partition']
         opts = {k: v for k, v in opts.items() if k not in to_rm}
@@ -607,8 +604,6 @@ class HCPDataset(ImageCacheDataset):
 
         opts = {k: v for k, v in opts.items() if k not in kwargs}
         return HCPDataset(inputs,outputs,**opts,**kwargs)
-
-
 
     def __init__(self, inputs, outputs,
                  raters=('A1', 'A2', 'A3', 'A4'),
@@ -631,6 +626,8 @@ class HCPDataset(ImageCacheDataset):
                  features=None,
                  flatmap_cache=True):
 
+        # warn if in jupyter notebook and multiproc:
+        # multiproc hangs in jupyter notebooks
         # XXX move to highest superclass?
         if multiproc != False:
             try:
@@ -642,7 +639,6 @@ class HCPDataset(ImageCacheDataset):
                     warnings.warn("Running multiproc=True in a jupyter notebook will cause processing to hang!")
                 else:
                     multiproc=False
-
 
         # Make an HCP Occipital Image Cache object first.
         imcache = HCPImageCache(
@@ -668,6 +664,9 @@ class HCPDataset(ImageCacheDataset):
             from ..config import hcp_sids
             sids = hcp_sids
 
+        if isinstance(raters,str):
+            raters=(raters,)
+
         if 'ventral' in raters:
             raters = tuple(x for x in raters if x != 'ventral')
             raters=raters + vddset.ventral_raters
@@ -677,7 +676,6 @@ class HCPDataset(ImageCacheDataset):
         if 'central' in raters:
             raters = tuple(x for x in raters if x != 'central')
             raters=raters + vddset.central_raters
-
 
         # Figure out the exclusions next.
         # Step through these and process from (rater, sid, h) into (rater, sid)
@@ -724,9 +722,9 @@ class HCPDataset(ImageCacheDataset):
             input_transform=input_transform,
             output_transform=output_transform)
 
-def make_datasets_from_file(opts_filename,exit_on_error=False,hcp_restricted_path=None,**kwargs):
+def make_datasets_from_file(opts_filename,exit_on_error=False,**kwargs):
 
-    (inputs,outputs,opts)=HCPDataset.load_opts(opts_filename,exit_on_error=exit_on_error,hcp_restricted_path=hcp_restricted_path)
+    (inputs,outputs,opts)=HCPDataset.load_opts(opts_filename,exit_on_error=exit_on_error)
 
     to_rm=['until','base_model','model_cache_path']
     opts = {k: v for k, v in opts.items() if k not in to_rm}
@@ -739,7 +737,6 @@ def make_datasets_from_file(opts_filename,exit_on_error=False,hcp_restricted_pat
     opts = {k: v for k, v in opts.items() if k not in kwargs}
 
     return make_datasets(inputs,outputs,**opts,**kwargs)
-
 
 def make_datasets(in_features, out_features,
                   features=None,
