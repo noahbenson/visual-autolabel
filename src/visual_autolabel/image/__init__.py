@@ -3,7 +3,7 @@
 # visual_autolabel/image/__init__.py
 # Submodule of the visual_autolabel package that hangles image-based CNNs/data.
 
-from ._data import (
+from ._data2D import (
     ImageCache,
     FlatmapFeature,
     FlatmapImageCache,

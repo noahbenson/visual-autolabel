@@ -342,6 +342,7 @@ class HybridUNet(nn.Module):
                  feature_count_2D, segment_count,
                  base_model='resnet18',
                  logits=True):
+        nn.Module.__init__(self)
         self.unet3D = UNet3D(
             feature_count_3D,
             output_count_3D,
@@ -390,7 +391,7 @@ class HybridUNet(nn.Module):
             # single channel has dims B x Rs x Cs x Ss;
             # we flatten to B x N (N = Rs * Cs * Ss)
             (nbatches * nchannels, nrows * ncols * nslices))
-        data2D_flat = tx_3D_to_2D @ data3D_flat.T
+        data2D_flat = torch.mm(tx_3D_to_2D, data3D_flat.T)
         im = torch.reshape(data2D_flat.T, (nbatches, nchannels) + shape2D)
         return im
 
