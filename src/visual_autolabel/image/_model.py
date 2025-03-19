@@ -7,11 +7,13 @@
 #===============================================================================
 # Dependencies
 
+import math
 from collections.abc import Mapping
 
 import scipy.sparse as sps
 import torch
 from torch import nn
+import torchvision.transforms.functional as F
 
 from ..util import convrelu, convrelu3D
 
@@ -392,6 +394,15 @@ class HybridUNet(nn.Module):
             # we flatten to B x N (N = Rs * Cs * Ss)
             (nbatches * nchannels, nrows * ncols * nslices))
         data2D_flat = torch.mm(tx_3D_to_2D, data3D_flat.T)
-        im = torch.reshape(data2D_flat.T, (nbatches, nchannels) + shape2D)
-        return im
+        data2D_flat = data2D_flat.T
+        # First reshape to the large (full res) size of the 2D image; these images
+        # have the same aspect ratio as shape2D but may be a different number of
+        # pixels.
+        aspect = shape2D[1] / shape2D[0]
+        full_n = data2D_flat.shape[1]
+        zoom = math.sqrt(shape2D[0]*shape2D[1] / full_n)
+        w = round(shape2D[0] / zoom)
+        h = round(shape2D[1] / zoom)
+        full_im = torch.reshape(data2D_flat, (nbatches, nchannels, w, h))
+        return F.resize(full_im, shape2D)
 

@@ -286,7 +286,7 @@ def load_subject_data(sid,
             raise ValueError("zoom must be a negative power of 2")
     return (inputs, outputs)
 
-class HCPVolumeDataset(torch.utils.data.Dataset):
+class HCPDataset3D(torch.utils.data.Dataset):
     """A PyTorch Dataset object that manages the input and label images.
     
     The `MRImageDataset` class is an instance of the `torch.utils.data.Dataset`
