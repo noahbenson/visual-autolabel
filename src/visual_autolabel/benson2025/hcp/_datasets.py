@@ -37,9 +37,6 @@ from ...image import (
     LabelIntersectFeature
 )
 
-
-
-
 #===============================================================================
 # HCP Datasets
 from neuropythy.datasets.hcp import (HCPMetaDataset, to_boolean)
@@ -463,11 +460,30 @@ class HCPImageCache(BilateralFlatmapImageCache):
         return os.path.join(feature, f"{rater}_{subject}.pt")
 
     def make_flatmap(self, target, view=None):
-        # We may have been given (rater, sid, h) or ((rater, sid), h):
         (rater, sid) = self.unpack_target(target)
         if view is None:
             raise ValueError("HCPImageCache requires a view")
-        h = view['hemisphere']
+        elif isinstance(view,str):
+            h = view
+        else:
+            h = view['hemisphere']
+        hem=self.get_hemi(rater,sid,h)
+
+        # Make the flatmap:
+        fmap = ny.to_flatmap('occipital_pole', hem, radius=np.pi/2.25)
+        return fmap.with_meta(subject_id=sid, rater=rater, hemisphere=h)
+
+    @classmethod
+    def get_labels(cls,rater,sid,h,
+                              labels=('visual_area','visual_sector'),
+                              lines_datasets=('hcp_lines','hcp_ventral_lines','hcp_dorsal_lines')):
+        if isinstance(labels,str):
+            labels=(labels,)
+        if isinstance(lines_datasets,str):
+            lines_datasets=(lines_datasets,)
+        ndb=len(lines_datasets)
+        nlbl=len(labels)
+        # We may have been given (rater, sid, h) or ((rater, sid), h):
         # Get the subject and hemi.
         sub = ny.data['hcp_lines'].subjects[sid]
         hem = sub.hemis[h]
@@ -477,30 +493,40 @@ class HCPImageCache(BilateralFlatmapImageCache):
         if rater is not None and rater != 'mean':
             # Get the appropriate data from the dataset.
 
-            dat=[None,None,None]
-            va = np.zeros((hem.vertex_count,3), dtype=int)
-            vs = np.zeros((hem.vertex_count,3), dtype=int)
-            for i,db in enumerate(('hcp_lines','hcp_ventral_lines','hcp_dorsal_lines')):
+            lst = [np.zeros((hem.vertex_count,ndb), dtype=int) for _ in range(nlbl)]
+            for idb,db in enumerate(lines_datasets):
                 if rater in ny.data[db].subject_labels:
                     dat = ny.data[db].subject_labels[rater][sid][h]
-                    va[:,i]  = dat['visual_area']
-                    vs[:,i]  = dat['visual_sector']
+                    for ilb,lb in enumerate(labels):
+                        lst[ilb][:,idb]  = dat[lb]
 
-            # take minimum non-zero element
-            min=np.where(va==0,np.inf,va)
-            idx = np.where(np.isfinite(min).any(axis=1), min.argmin(axis=1), 0)
+            for ilb,lb in enumerate(labels):
+                va=lst[ilb]
 
-            va=va[np.arange(va.shape[0]),idx]
-            vs=vs[np.arange(vs.shape[0]),idx]
+                # take minimum non-zero element
+                min=np.where(va==0,np.inf,va)
+                idx = np.where(np.isfinite(min).any(axis=1), min.argmin(axis=1), 0)
 
+                lst[ilb]=va[np.arange(va.shape[0]),idx]
+
+        else:
+            lst=[None]*nlbl
+
+        lst.append(hem)
+
+        return lst
+
+    @classmethod
+    def get_hemi(cls,rater,sid,h):
+        va,vs,hem=cls.get_labels(rater,sid,h)
+
+        if va is not None or vs is not None:
             hem = hem.with_prop(
                 visual_area=va,
                 visual_sector=vs)
-        # Make the flatmap:
-        fmap = ny.to_flatmap('occipital_pole', hem, radius=np.pi/2.25)
-        # XXX if not rater?
-        fmap = fmap.with_meta(subject_id=sid, rater=rater, hemisphere=h)
-        return fmap
+
+        return hem
+
     # We overload fill_image so that we can call down then turn NaNs into 0s.
     def fill_image(self, target, feature, im):
         super().fill_image(target, feature, im)

@@ -62,17 +62,7 @@ def load_inferred(sid, h, path=None, prefix=None):
     if prefix is not None:
         r = {(prefix + k):v for (k,v) in r.items()}
     return r
-def _get_visual_area(area_filt,prefix,lhdat,rhdat):
-    if area_filt is None:
-        lhdat[f'{prefix}visual_area'] = calc_visual_area(lhdat)
-        rhdat[f'{prefix}visual_area'] = calc_visual_area(rhdat)
-    else:
-        lh = calc_visual_area(lhdat)
-        rh = calc_visual_area(rhdat)
-        lhdat[f'{prefix}visual_area']=np.where(np.isin(lh, area_filt), lh, 0)
-        rhdat[f'{prefix}visual_area']=np.where(np.isin(rh, area_filt), rh, 0)
-    return lhdat,rhdat
-def add_inferred(sub, path=None, prefix='inf_',area_filt=None):
+def add_inferred(sub, path=None, prefix='inf_'):
     """Given an HCP subject, returns a copy with inferred maps.
 
     This function loads the inferred maps for the subject and
@@ -82,18 +72,15 @@ def add_inferred(sub, path=None, prefix='inf_',area_filt=None):
     sid = int(sub.name)
     lhdat = load_inferred(sid, 'lh', path=path, prefix=prefix)
     rhdat = load_inferred(sid, 'rh', path=path, prefix=prefix)
-    # area init
     lhdat[f'{prefix}visual_area_init'] = lhdat[f'{prefix}visual_area']
     rhdat[f'{prefix}visual_area_init'] = rhdat[f'{prefix}visual_area']
-    # ring
     lhdat[f'{prefix}visual_ring'] = calc_visual_ring(lhdat)
     rhdat[f'{prefix}visual_ring'] = calc_visual_ring(rhdat)
-    # area
-    lhdat,rhdat=_get_visual_area(area_filt,prefix,lhdat,rhdat)
-
+    lhdat[f'{prefix}visual_area'] = calc_visual_area(lhdat)
+    rhdat[f'{prefix}visual_area'] = calc_visual_area(rhdat)
     return sub.with_hemi(lh=sub.lh.with_prop(lhdat),
                          rh=sub.rh.with_prop(rhdat))
-def add_prior(sub, prefix='prior_',area_filt=None):
+def add_prior(sub, prefix='prior_'):
     """Given a subject, adds the retinotopic prior and returns it.
 
     This function calculates the retinotopic prior for the subject,
@@ -112,16 +99,14 @@ def add_prior(sub, prefix='prior_',area_filt=None):
         (lhdat,rhdat) = [
             {(prefix+k):v for (k,v) in dat.items()}
             for dat in (lhdat,rhdat)]
-    # ring
+    # We need to add in the visual_ring and visual_area data.
     lhdat[f'{prefix}visual_ring'] = calc_visual_ring(lhdat)
     rhdat[f'{prefix}visual_ring'] = calc_visual_ring(rhdat)
-    # area
-    lhdat,rhdat=_get_visual_area(area_filt,prefix,lhdat,rhdat)
+    lhdat[f'{prefix}visual_area'] = calc_visual_area(lhdat)
+    rhdat[f'{prefix}visual_area'] = calc_visual_area(rhdat)
     return sub.with_hemi(lh=sub.lh.with_prop(lhdat),
                          rh=sub.rh.with_prop(rhdat))
-def add_wang2015(sub, prefix='wang_',mapping=None,area_filt=None):
-    # mapping - {int:int,...} mapping between wang labels and other mapping
-    # area_filt - area labels to include, all others set to zero
+def add_wang2015(sub, prefix='wang_'):
     if add_wang2015.fsaverage_subject is None:
         fsa = ny.freesurfer_subject('fsaverage')
         wang = {
@@ -141,16 +126,11 @@ def add_wang2015(sub, prefix='wang_',mapping=None,area_filt=None):
         hem = sub.hemis[h]
         fsh = fsa.hemis[h]
         wang=fsh.interpolate(hem, 'wang', method='nearest')
-        # change labels according to mapping
-        if mapping is not None:
-            wang=np.vectorize(lambda x: mapping.get(x,0))(wang)
-        if area_filt is not None:
-            wang=np.where(np.isin(wang, area_filt), wang, 0)
         hems[h] = hem.with_prop(wang=wang,wang_visual_area=wang)
     return sub.with_hemi(**hems)
 add_wang2015.fsaverage_subject = None
 
-def add_raterlabels(sub,raters,outputs=('central','ventra','dorsal')):
+def add_raterlabels(sub,raters):
     """Returns a copy of the given subject with labels as drawn by raters.
     """
 
@@ -160,19 +140,14 @@ def add_raterlabels(sub,raters,outputs=('central','ventra','dorsal')):
         raters='central'
     if isinstance(raters,str):
         raters=CVDLinesDataset.region_raters[raters]
-    if isinstance(outputs,str):
-        outputs=(outputs,)
 
-    lbldata = ny.data['hcp_lines'].subject_labels
-
-
+    clbldata = ny.data['hcp_lines'].subject_labels
     sid = int(sub.name)
     lbls = {}
     for h in ['lh','rh']:
         ll = {}
         for anat in raters:
-            if anat in CVDLinesDataset.central_raters and 'central' in outputs:
-                # Central Area
+            if anat in CVDLinesDataset.central_raters:
                 lbldat = lbldata[anat].get(sid)
                 if lbldat is None: lbldat = {}
                 lbldat = lbldat.get(h)
@@ -180,25 +155,27 @@ def add_raterlabels(sub,raters,outputs=('central','ventra','dorsal')):
                 areadat = lbldat.get('visual_area', None)
                 if areadat is None: continue
                 ll[f'{anat}_visual_area'] = areadat
-
-                # Central sectors -> central eccentricities
+                # We also want to try to turn the sectors into eccentricity
+                # labels also.
                 sctdat = lbldat.get('visual_sector', None)
                 if sctdat is None: continue
                 eccdat = sectors_to_rings(sctdat, areadat)
                 ll[f'{anat}_visual_ring'] = eccdat
-            if  anat in CVDLinesDataset.ventral_raters and 'ventral' in outputs:
-                # Ventral areas
-                lbl,_ = HCPImageCache.get_labels(anat, sid, h,labels=('visual_area',),lines_datasets=('hcp_ventral_lines',))
-                if lbl is None: continue
+            # Ventral and dorsal labels.
+            if  anat in CVDLinesDataset.ventral_raters:
+                lbl = HCPImageCache.make_flatmap_helper((anat, sid), h)
+                if lbl is None:
+                    continue
                 k = 'V' + anat[1:]
-                lbl[lbl > 6] = 0
-                ll[f'{k}_visual_area'] = lbl
-            if anat in CVDLinesDataset.dorsal_raters and 'dorsal' in outputs:
-                # Dorsal areas
-                lbl,_ = HCPImageCache.get_labels(anat, sid, h,labels=('visual_area',),lines_datasets=('hcp_dorsal_lines',))
-                if lbl is None: continue
-                k = 'D' + anat[1:]
+                print(lbl)
                 lbl[lbl < 7] = 0
+                ll[f'{k}_visual_area'] = lbl
+            if anat in CVDLinesDataset.dorsal_raters:
+                lbl = HCPImageCache.make_flatmap_helper((anat, sid), h)
+                if lbl is None:
+                    continue
+                k = 'D' + anat[1:]
+                lbl[lbl > 6] = 0
                 ll[f'{k}_visual_area'] = lbl
 
         lbls[h] = ll

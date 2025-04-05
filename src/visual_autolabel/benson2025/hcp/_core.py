@@ -9,6 +9,8 @@
 #-------------------------------------------------------------------------------
 # Dependencies
 
+from copy import copy
+
 import json
 import os
 
@@ -17,7 +19,9 @@ import numpy as np
 import neuropythy as ny
 
 from ...image import FlatmapFeature, NullFeature
-from ...plot import add_wang2015, add_inferred, add_prior, add_raterlabels
+from ...plot import add_wang2015, add_raterlabels
+from ...plot import add_inferred as add_inf
+from ...plot import add_prior as add_pri
 from .._core import (
     caonly_properties,
     vaonly_properties,
@@ -48,11 +52,21 @@ input_properties = {
 }
 output_properties = {
     'area': caonly_properties,
+    'central': caonly_properties,
     'ventral': vaonly_properties,
     'dorsal': daonly_properties,
     'ring': econly_properties,
     'sect': caonly_properties + econly_properties,
 }
+
+region_wanglabels = {
+    1:'V1',2:'V2',3:'V3', #central
+    7: 'hV4', 8: 'VO1', 9: 'VO2', # ventral
+    15: 'LO1', 16: 'V3b', 17: 'V3a', 18: 'IPS0' #dorsal
+}
+wang2benson={k:visual_area_label_key[v] for k,v in region_wanglabels.items()}
+wang2benson[0]=0
+
 
 
 
@@ -362,6 +376,13 @@ def all_datasets(sids=Ellipsis, cache_path=Ellipsis,
         if (include_null or inp != 'null')
         if (include_sect or outp != 'sect')}
 
+def _filter_labels(lbls,outp):
+    #output strings to regions
+    filt=[visual_area_label_key[k] for k in output_properties[outp]]
+    #for h in ['lh','rh']:
+    #    lbls[h]=np.where(np.isin(lbls[h], filt), lbls[h], 0)
+    return np.where(np.isin(lbls, filt), lbls, 0)
+
 def flatmaps(sid, datasets,
              add_inferred=True, add_prior=True, add_raters=True, add_wang=True,
              dataset_cache_path=Ellipsis,
@@ -397,18 +418,21 @@ def flatmaps(sid, datasets,
         from ..config import model_cache_path as _mcp
         model_cache_path = _mcp
     # Add extra properties as requested:
-    if add_inferred:
-        from ...plot import add_inferred
-        sub = add_inferred(sub)
-    if add_prior:
-        from ...plot import add_prior
-        sub = add_prior(sub)
-    if add_wang:
-        sub = add_wang2015(sub)
+    outps=[outp for ((_,outp),_) in datasets.items()]
     if add_raters:
-        if raters in (Ellipsis,None):
-            raters=central_raters
-        sub = add_raterlabels(sub,raters)
+        #uinds=None
+        #if raters in (Ellipsis,None):
+        #    raters=central_raters
+        #keys=[ k for k in sub.lh.properties.keys() if 'visual_area' in k]
+        sub = add_raterlabels(sub,raters,outps)
+        #keys=[ k for k in sub.lh.properties.keys() if 'visual_area' in k and k not in keys]
+        #uinds=np.unique(np.concatenate([sub.lh.properties[k] for k in keys]))
+    if add_inferred:
+        sub = add_inf(sub)
+    if add_prior:
+        sub = add_pri(sub)
+    if add_wang:
+        sub = add_wang2015(sub,mapping=wang2benson)
 
     # target = rater + subject
     targ = next(
@@ -426,7 +450,24 @@ def flatmaps(sid, datasets,
             p: hem.prop(p)[fmap.labels]
             for p in hem.properties.keys()
             if p not in fmap.properties}
+
+        if add_inferred:
+            inf=copy(ps['inf_visual_area'])
+        if add_prior:
+            prior=copy(ps['prior_visual_area'])
+        if add_wang:
+            wang=copy(ps['wang_visual_area'])
+
         for ((inp,outp),ds) in datasets.items():
+            if add_inferred:
+                ps['inf_visual_area']=_filter_labels(inf,outp)
+            if add_prior:
+                ps['prior_visual_area']=_filter_labels(prior,outp)
+            if add_wang:
+                ps['wang_visual_area']=_filter_labels(wang,outp)
+
+            # labelsets
+            label_key={(i+1):visual_area_label_key[k] for i,k in enumerate(output_properties[outp])}
             if outp in ('central','area'):
                 labelsets = {'visual_area': slice(0,3)}
             elif outp == 'ventral':
@@ -443,6 +484,8 @@ def flatmaps(sid, datasets,
                 labelsets = {'visual_area': slice(0, len(outp))}
             else:
                 raise ValueError(f"invalid output: {outp}")
+
+            # load model
             mdl = unet(
                 inp, outp, 'model',
                 model_cache_path=model_cache_path,
@@ -453,7 +496,9 @@ def flatmaps(sid, datasets,
 
             labels = ds.predlabels(targ, mdl, view=view, labelsets=labelsets)
             for (k,lbl) in labels.items():
-                ps[f"{inp}_{k}"] = lbl
+                #ps[f"{inp}_{k}"] = lbl
+                ps[f"{inp}_{k}"] = np.vectorize(lambda x: label_key.get(x,0))(lbl)
+
         fmaps.append(fmap.with_prop(ps))
     return tuple(fmaps)
 def all_flatmaps(datasets, sids=Ellipsis,

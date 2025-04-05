@@ -95,6 +95,7 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None,raters='cent
         against the gold-standard data, signaling which comparisons are likely
         to be analyzed or plotted together. The default is `None`.
     """
+    # pairs
     if pair_tags is None:
         pair_tags = {}
     elif isinstance(pair_tags, str):
@@ -103,6 +104,7 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None,raters='cent
             pair_tags = gen_hcp_default_pair_tags(raters)
         if pair_tags == 'nyu':
             pair_tags = calc_scores.nyu_default_pair_tags
+    # suffix
     if suffix.startswith('_'):
         suffix = suffix[1:]
     if suffix in ('visual_area', 'area'):
@@ -111,6 +113,8 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None,raters='cent
         key = 'ring'
     elif suffix == ('visual_sector', 'sect'):
         key = 'sector'
+    else:
+        raise ValueError(f'unhandled suffix {suffix}')
     suffix = '_visual_' + key
     if rowinit is None:
         rowinit = {}
@@ -130,7 +134,7 @@ def calc_scores(hem, suffix, rowinit=None, smooth=0, pair_tags=None,raters='cent
     rowinit = dict(rowinit, parcellation=key)
     props = [p for p in hem.properties.keys() if p.endswith(suffix)]
     rows = []
-    print(props)
+    #print(props)
     for p1 in props:
         k1 = p1.split("_")[0]
         lbl1 = hem.prop(p1)
