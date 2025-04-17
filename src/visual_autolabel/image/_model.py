@@ -390,13 +390,13 @@ class HybridUNet(nn.Module):
         (nbatches, nchannels, nrows, ncols, nslices) = data3D.shape
         data3D_flat = torch.reshape(
             data3D,
-            # single channel has dims B x Rs x Cs x Ss;
-            # we flatten to B x N (N = Rs * Cs * Ss)
+            # single channel has dims B x H x Rs x Cs x Ss;
+            # we flatten to B x H x N (N = Rs * Cs * Ss)
             (nbatches, nchannels, nrows * ncols * nslices))
         data2D_flat = [
             torch.mm(tx_item, data3D_item.T)
             for (tx_item, data3D_item) in zip(tx_3D_to_2D, data3D_flat)]
-        data2D_flat = torch.stack(data2D_flat).T
+        data2D_flat = torch.stack(data2D_flat)
         # First reshape to the large (full res) size of the 2D image; these images
         # have the same aspect ratio as shape2D but may be a different number of
         # pixels.
@@ -406,5 +406,6 @@ class HybridUNet(nn.Module):
         w = round(shape2D[0] / zoom)
         h = round(shape2D[1] / zoom)
         full_im = torch.reshape(data2D_flat, (nbatches, nchannels, w, h))
-        return F.resize(full_im, shape2D)
+        ret = F.resize(full_im, shape2D)
+        return ret
 

@@ -79,7 +79,7 @@ def uncache_data(sid, name, fn,
     cache_path = Path(cache_path)
     filepath = cache_path / name / f'{sid}.pt'
     if filepath.is_file():
-        return torch.load(filepath)
+        return torch.load(filepath, weights_only=False)
     data = torch.tensor(fn(), dtype=dtype, device=device)
     # Make sure the directory exists.
     filedir = filepath.parent
