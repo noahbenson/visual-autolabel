@@ -141,7 +141,7 @@ def hybrid_collate(batch):
         torch.stack(labels)
     )
 
-train_set = val.train.HCPHybridDataset(
+train_set = HCPHybridDataset(
     sids=trn_sids,
     inputs2D=inputs2D,
     inputs3D=inputs3D,
@@ -156,7 +156,7 @@ train_set = val.train.HCPHybridDataset(
     zoom=zoom
 )
 
-val_set = val.train.HCPHybridDataset(
+val_set = HCPHybridDataset(
     sids=val_sids,
     inputs2D=inputs2D,
     inputs3D=inputs3D,
