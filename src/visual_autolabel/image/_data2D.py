@@ -538,6 +538,14 @@ class ImageCache:
         if multiproc is Ellipsis:
             multiproc = self.options.multiproc
         im = None
+
+# Add this BEFORE the _mpcall call:
+	print(f"[DEBUG] _get_feature called with:")
+	print(f"         target_id: {target_id}")
+	print(f"         feature_name: {feature_name}")
+	print(f"         filename: {filename}")
+
+
         # First, see if there is already a file, assuming overwrite isn't set.
         if not overwrite:
             im = self.load_image(filename)
