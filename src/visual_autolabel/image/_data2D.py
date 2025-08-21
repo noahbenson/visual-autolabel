@@ -538,6 +538,7 @@ class ImageCache:
         if multiproc is Ellipsis:
             multiproc = self.options.multiproc
         im = None
+
         # First, see if there is already a file, assuming overwrite isn't set.
         if not overwrite:
             im = self.load_image(filename)
