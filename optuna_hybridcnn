@@ -15,11 +15,12 @@ from torch.utils.data import DataLoader
 
 import visual_autolabel as val
 
-dataset2D_cache_path = '/data/visual-autolabel/datasets/HCP'
-tx3Dto2D_cache_path = '/data/visual-autolabel/volumetric/data/tx3Dto2D'
+dataset2D_cache_path = '/mnt/data/data/datasets/HCP'
+tx3Dto2D_cache_path = '/mnt/data/data/volumetric/data/tx3Dto2D'
 
-val.image.dataset3D_cache_path = '/data/visual-autolabel/volumetric/data'
-val.image.noddi_data_path = '/data/visual-autolabel/volumetric/NODDI'
+val.image.dataset3D_cache_path = '/mnt/data/data/volumetric/data'
+val.image.noddi_data_path = '/mnt/data/data/volumetric/NODDI'
+
 
 inputs3D = ('graymask', 'T1', 'T2')
 inputs2D = ('curvature', 'convexity', 'thickness')
@@ -63,11 +64,11 @@ trn_dataset3D = val.image.HCPDataset3D(
     mkdir_mode=0o775,
     subindex=subindex,
     zoom=zoom)
-    
+
 trn_dataset2D = val.benson2025.hcp.HCPDataset(
     inputs2D, outputs,
     sids=trn_sids)
-    
+
 class VolumeToFlatImageDataset(torch.utils.data.Dataset):
     def __init__(self,
                  sids,
@@ -85,14 +86,14 @@ class VolumeToFlatImageDataset(torch.utils.data.Dataset):
         import scipy.sparse as sps
         (row, col, val) = sps.find(matrix)
         matrix = torch.sparse_coo_tensor(
-            torch.as_tensor(np.array([row, col])), 
+            torch.as_tensor(np.array([row, col])),
             torch.as_tensor(val),
             matrix.shape,
             dtype=torch.float32)
         #matrix = torch.tensor(matrix, dtype=torch.float32)
         self.data[sid] = matrix
         return matrix
-    
+        
 class HCPHybridDataset(torch.utils.data.Dataset):
     def __init__(self,
                  sids,
@@ -120,7 +121,7 @@ class HCPHybridDataset(torch.utils.data.Dataset):
             subindex=subindex,
             zoom=zoom)
         self.dataset2D = val.benson2025.hcp.HCPDataset(
-            inputs2D, 
+            inputs2D,
             outputs,
             sids=sids,
             cache_path=cache_path2D)
