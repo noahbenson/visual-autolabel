@@ -1492,3 +1492,4 @@ class NullFeature(FlatmapFeature):
     """A Feature class that creates a blank set of values."""
     def get_property(self, fmap, target, view={}):
         return np.zeros(fmap.vertex_count)
+

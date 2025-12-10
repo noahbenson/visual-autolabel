@@ -13,7 +13,7 @@ from ._data2D import (
     LabelDiffFeature,
     LabelUnionFeature,
     LabelIntersectFeature,
-    NullFeature
+    NullFeature,
 )
 from ._data3D import (
     dataset3D_cache_path_init as dataset3D_cache_path,
@@ -21,10 +21,14 @@ from ._data3D import (
     _sids as sids,
     HCPDataset3D
 )
+from ._hybrid import (
+    Image3DTo2DDataset,
+    HCPHybridDataset
+)
 from ._model import (
     UNet2D,
     UNet3D,
-    HybridUNet as UNet
+    HybridUNet as UNet,
 )
 
 __all__ = [
