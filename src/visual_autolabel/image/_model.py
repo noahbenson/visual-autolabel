@@ -409,3 +409,118 @@ class HybridUNet(nn.Module):
         ret = F.resize(full_im, shape2D)
         return ret
 
+class HybridUNet(nn.Module):
+    def __init__(self,
+                 feature_count_3D,
+                 feature_count_2D,
+                 segment_count,
+                 base_model='resnet18',
+                 logits=True):
+        nn.Module.__init__(self)
+        self.feature_count_3D = feature_count_3D
+        self.feature_count_2D = feature_count_2D
+        self.segment_count = segment_count
+        self.logits = logits
+        base_model_n = int(base_model.replace('resnet', ''))
+        self.base_model = f'resnet{base_model_n}'
+ 
+        #3D Encoder
+        from . import kenshohara_resnet as resnetlib
+        base3D = resnetlib.generate_model(
+            base_model_n,
+            n_input_channels=feature_count_3D,
+            n_classes=segment_count,
+            conv1_t_stride=2)
+    
+        layers3D = list(base3D.children())
+        self.enc3D_layer0 = nn.Sequential(*layers3D[:3])
+        self.enc3D_layer1 = nn.Sequential(*layers3D[3:5])
+        self.enc3D_layer2 = layers3D[5]
+        self.enc3D_layer3 = layers3D[6]
+        self.enc3D_layer4 = layers3D[7]
+ 
+        #2D Encoder
+        import torchvision.models as mdls
+        base2D = getattr(mdls, self.base_model)(
+            weights=None,
+            num_classes=segment_count)
+                     
+        layers2D = list(base2D.children())
+        self.enc2D_layer0 = nn.Sequential(*layers2D[:3])
+        self.enc2D_layer1 = nn.Sequential(*layers2D[3:5])
+        self.enc2D_layer2 = layers2D[5]
+        self.enc2D_layer3 = layers2D[6]
+        self.enc2D_layer4 = layers2D[7]
+ 
+        # Bottleneck Fusion
+        self.pool3D = nn.AdaptiveAvgPool3d((None, None, 1))
+        self.fuse = convrelu(512 + 512, 512, 1, 0)
+ 
+        # Shared 2D Decoder
+        self.layer0_1x1 = convrelu(64, 64, 1, 0)
+        self.layer1_1x1 = convrelu(64, 64, 1, 0)
+        self.layer2_1x1 = convrelu(128, 128, 1, 0)
+        self.layer3_1x1 = convrelu(256, 256, 1, 0)
+        self.upsample = nn.Upsample(
+            scale_factor=2, mode='bilinear', align_corners=True)
+        self.conv_up3 = convrelu(256 + 512, 512, 3, 1)
+        self.conv_up2 = convrelu(128 + 512, 256, 3, 1)
+        self.conv_up1 = convrelu(64 + 256, 256, 3, 1)
+        self.conv_up0 = convrelu(64 + 256, 128, 3, 1)
+        self.conv_original_size0 = convrelu(feature_count_2D, 64, 3, 1)
+        self.conv_original_size1 = convrelu(64, 64, 3, 1)
+        self.conv_original_size2 = convrelu(64 + 128, 64, 3, 1)
+        self.conv_last = nn.Conv2d(64, segment_count, 1)
+ 
+    def forward(self, inputs3D, inputs2D):
+        # 3D Encode
+        e3_0 = self.enc3D_layer0(inputs3D)
+        e3_1 = self.enc3D_layer1(e3_0)
+        e3_2 = self.enc3D_layer2(e3_1)
+        e3_3 = self.enc3D_layer3(e3_2)
+        e3_4 = self.enc3D_layer4(e3_3) 
+ 
+        # 2D Encode
+        x_original = self.conv_original_size0(inputs2D)
+        x_original = self.conv_original_size1(x_original)
+        e2_0 = self.enc2D_layer0(inputs2D)
+        e2_1 = self.enc2D_layer1(e2_0)
+        e2_2 = self.enc2D_layer2(e2_1)
+        e2_3 = self.enc2D_layer3(e2_2)
+        e2_4 = self.enc2D_layer4(e2_3) 
+        
+        # Fuse at Bottleneck
+        e3_4_pooled = self.pool3D(e3_4).squeeze(-1)
+        if e3_4_pooled.shape[-2:] != e2_4.shape[-2:]:
+            e3_4_pooled = F.resize(e3_4_pooled, list(e2_4.shape[-2:]))
+        fused = self.fuse(torch.cat([e2_4, e3_4_pooled], dim=1))
+ 
+        # Decode with 2D Skip Connections
+        x = self.upsample(fused)
+        e2_3 = self.layer3_1x1(e2_3)
+        x = torch.cat([x, e2_3], dim=1)
+        x = self.conv_up3(x)
+
+        x = self.upsample(x)
+        e2_2 = self.layer2_1x1(e2_2)
+        x = torch.cat([x, e2_2], dim=1)
+        x = self.conv_up2(x)
+
+        x = self.upsample(x)
+        e2_1 = self.layer1_1x1(e2_1)
+        x = torch.cat([x, e2_1], dim=1)
+        x = self.conv_up1(x)
+
+        x = self.upsample(x)
+        e2_0 = self.layer0_1x1(e2_0)
+        x = torch.cat([x, e2_0], dim=1)
+        x = self.conv_up0(x)
+
+        x = self.upsample(x)
+        x = torch.cat([x, x_original], dim=1)
+        x = self.conv_original_size2(x)
+        out = self.conv_last(x)
+        if not self.logits:
+            out = torch.sigmoid(out)
+        return out
+
