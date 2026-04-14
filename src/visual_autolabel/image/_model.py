@@ -428,9 +428,7 @@ class HybridUNet(nn.Module):
         from . import kenshohara_resnet as resnetlib
         base3D = resnetlib.generate_model(
             base_model_n,
-            n_input_channels=feature_count_3D,
-            n_classes=segment_count,
-            conv1_t_stride=2)
+            n_input_channels=feature_count_3D)
     
         layers3D = list(base3D.children())
         self.enc3D_layer0 = nn.Sequential(*layers3D[:3])
@@ -442,8 +440,7 @@ class HybridUNet(nn.Module):
         #2D Encoder
         import torchvision.models as mdls
         base2D = getattr(mdls, self.base_model)(
-            weights=None,
-            num_classes=segment_count)
+            weights=None)
                      
         layers2D = list(base2D.children())
         self.enc2D_layer0 = nn.Sequential(*layers2D[:3])
@@ -453,7 +450,7 @@ class HybridUNet(nn.Module):
         self.enc2D_layer4 = layers2D[7]
  
         # Bottleneck Fusion
-        self.pool3D = nn.AdaptiveAvgPool3d((None, None, 1))
+        self.pool3D = nn.AdaptiveAvgPool3d((1, None, None))
         self.fuse = convrelu(512 + 512, 512, 1, 0)
  
         # Shared 2D Decoder
@@ -462,7 +459,7 @@ class HybridUNet(nn.Module):
         self.layer2_1x1 = convrelu(128, 128, 1, 0)
         self.layer3_1x1 = convrelu(256, 256, 1, 0)
         self.upsample = nn.Upsample(
-            scale_factor=2, mode='bilinear', align_corners=True)
+            scale_factor=2, mode='bilinear')
         self.conv_up3 = convrelu(256 + 512, 512, 3, 1)
         self.conv_up2 = convrelu(128 + 512, 256, 3, 1)
         self.conv_up1 = convrelu(64 + 256, 256, 3, 1)
@@ -490,7 +487,7 @@ class HybridUNet(nn.Module):
         e2_4 = self.enc2D_layer4(e2_3) 
         
         # Fuse at Bottleneck
-        e3_4_pooled = self.pool3D(e3_4).squeeze(-1)
+        e3_4_pooled = self.pool3D(e3_4).squeeze(2)
         if e3_4_pooled.shape[-2:] != e2_4.shape[-2:]:
             e3_4_pooled = F.resize(e3_4_pooled, list(e2_4.shape[-2:]))
         fused = self.fuse(torch.cat([e2_4, e3_4_pooled], dim=1))
