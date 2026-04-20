@@ -334,7 +334,7 @@ class UNet2D(torch.nn.Module):
         if not self.logits:
             out = torch.sigmoid(out)
         return out
-
+"""
 # The Hybrid 2d/3d CNN:
 class HybridUNet(nn.Module):
     """A hybrid 2D/3D UNet CNN.
@@ -409,6 +409,8 @@ class HybridUNet(nn.Module):
         ret = F.resize(full_im, shape2D)
         return ret
 
+'''
+
 class HybridUNet(nn.Module):
     def __init__(self,
                  feature_count_3D,
@@ -428,8 +430,18 @@ class HybridUNet(nn.Module):
         from . import kenshohara_resnet as resnetlib
         base3D = resnetlib.generate_model(
             base_model_n,
-            n_input_channels=feature_count_3D)
-    
+            n_input_channels=feature_count_3D,
+            n_classes=segment_count,
+            conv1_t_stride=2)
+                     
+        c1 = base3D.conv1
+        base3D.conv1 = nn.Conv3d(
+            feature_count_3D, c1.out_channels,
+            kernel_size=c1.kernel_size,
+            stride=c1.stride,
+            padding=c1.padding,
+            bias=c1.bias)
+                     
         layers3D = list(base3D.children())
         self.enc3D_layer0 = nn.Sequential(*layers3D[:3])
         self.enc3D_layer1 = nn.Sequential(*layers3D[3:5])
@@ -440,7 +452,8 @@ class HybridUNet(nn.Module):
         #2D Encoder
         import torchvision.models as mdls
         base2D = getattr(mdls, self.base_model)(
-            weights=None)
+            weights=None,
+            num_classes=segment_count)
                      
         layers2D = list(base2D.children())
         self.enc2D_layer0 = nn.Sequential(*layers2D[:3])
@@ -449,17 +462,18 @@ class HybridUNet(nn.Module):
         self.enc2D_layer3 = layers2D[6]
         self.enc2D_layer4 = layers2D[7]
  
-        # Bottleneck Fusion
-        self.pool3D = nn.AdaptiveAvgPool3d((1, None, None))
-        self.fuse = convrelu(512 + 512, 512, 1, 0)
- 
+        self._fusion_out_channels = 512
+        self._fusion_out_h = 4
+        self._fusion_out_w = 8
+        self.fusion_linear = nn.LazyLinear(512 * 4 * 8)
+                     
         # Shared 2D Decoder
         self.layer0_1x1 = convrelu(64, 64, 1, 0)
         self.layer1_1x1 = convrelu(64, 64, 1, 0)
         self.layer2_1x1 = convrelu(128, 128, 1, 0)
         self.layer3_1x1 = convrelu(256, 256, 1, 0)
         self.upsample = nn.Upsample(
-            scale_factor=2, mode='bilinear')
+            scale_factor=2, mode='bilinear', align_corners=True)
         self.conv_up3 = convrelu(256 + 512, 512, 3, 1)
         self.conv_up2 = convrelu(128 + 512, 256, 3, 1)
         self.conv_up1 = convrelu(64 + 256, 256, 3, 1)
@@ -486,11 +500,12 @@ class HybridUNet(nn.Module):
         e2_3 = self.enc2D_layer3(e2_2)
         e2_4 = self.enc2D_layer4(e2_3) 
         
-        # Fuse at Bottleneck
-        e3_4_pooled = self.pool3D(e3_4).squeeze(2)
-        if e3_4_pooled.shape[-2:] != e2_4.shape[-2:]:
-            e3_4_pooled = F.resize(e3_4_pooled, list(e2_4.shape[-2:]))
-        fused = self.fuse(torch.cat([e2_4, e3_4_pooled], dim=1))
+        N = e2_4.shape[0]
+        e2_4_flat = e2_4.flatten(start_dim=1)
+        e3_4_flat = e3_4.flatten(start_dim=1)
+        combined = torch.cat([e2_4_flat, e3_4_flat], dim=1)
+        fused_flat = self.fusion_linear(combined)
+        fused = fused_flat.reshape(N, self._fusion_out_channels, self._fusion_out_h, self._fusion_out_w)
  
         # Decode with 2D Skip Connections
         x = self.upsample(fused)
