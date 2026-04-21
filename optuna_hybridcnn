@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 import visual_autolabel as val
 
 dataset2D_cache_path = '/mnt/data/data/datasets/HCP'
-tx3Dto2D_cache_path = '/mnt/data/data/volumetric/data/tx3Dto2D'
 
 val.image.dataset3D_cache_path = '/mnt/data/data/volumetric/data'
 val.image.noddi_data_path = '/mnt/data/data/volumetric/NODDI'
@@ -69,31 +68,7 @@ trn_dataset2D = val.benson2025.hcp.HCPDataset(
     inputs2D, outputs,
     sids=trn_sids)
 
-class VolumeToFlatImageDataset(torch.utils.data.Dataset):
-    def __init__(self,
-                 sids,
-                 cache_path=tx3Dto2D_cache_path):
-        self.cache_path = Path(cache_path)
-        self.sids = sids
-        self.data = {}
-    def __len__(self):
-        return len(self.sids)
-    def __getitem__(self, k):
-        sid = self.sids[k]
-        if sid in self.data:
-            return self.data[sid]
-        matrix = torch.load(f"{self.cache_path}/{sid}.pt", weights_only=False)
-        import scipy.sparse as sps
-        (row, col, val) = sps.find(matrix)
-        matrix = torch.sparse_coo_tensor(
-            torch.as_tensor(np.array([row, col])),
-            torch.as_tensor(val),
-            matrix.shape,
-            dtype=torch.float32)
-        #matrix = torch.tensor(matrix, dtype=torch.float32)
-        self.data[sid] = matrix
-        return matrix
-        
+
 class HCPHybridDataset(torch.utils.data.Dataset):
     def __init__(self,
                  sids,
@@ -102,14 +77,12 @@ class HCPHybridDataset(torch.utils.data.Dataset):
                  outputs=('V1', 'V2', 'V3'),
                  cache_path2D=None,
                  cache_path3D=None,
-                 transform_cache_path=tx3Dto2D_cache_path,
                  dtype=None,
                  device=None,
                  mkdir_mode=509,
                  subindex=(slice(2, -2, None), slice(8, 264, None), slice(2, -2, None)),
                  zoom=0.5,
                  ):
-        self.transform_dataset = VolumeToFlatImageDataset(sids, cache_path=transform_cache_path)
         self.dataset3D = val.image.HCPDataset3D(
             sids=sids,
             inputs=inputs3D,
@@ -130,18 +103,16 @@ class HCPHybridDataset(torch.utils.data.Dataset):
         return len(self.sids)
     def __getitem__(self, k):
         inputdata3D, _ = self.dataset3D[k]
-        transformdata3D = self.transform_dataset[k]
         inputdata2D, outputdata2D = self.dataset2D[k]
-        return (inputdata3D, transformdata3D, inputdata2D, outputdata2D)
+        return (inputdata3D, inputdata2D, outputdata2D)
         
-# Define custom collate function to handle sparse matrices
+# Define custom collate function
 def hybrid_collate(batch):
-    inputs3D, transforms, inputs2D, labels = zip(*batch)
+    inputs3D, inputs2D, labels = zip(*batch)
     return (
-        torch.stack(inputs3D),          # [B, C, D, H, W]
-        list(transforms),              # keep sparse transforms as list
-        torch.stack(inputs2D),         # [B, C, H, W]
-        torch.stack(labels)            # [B, C, H, W]
+        torch.stack(inputs3D),   # [B, C, D, H, W]
+        torch.stack(inputs2D),   # [B, C, H, W]
+        torch.stack(labels)      # [B, C, H, W]
     )
 
 def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs):
@@ -157,7 +128,6 @@ def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs
         outputs=outputs,
         cache_path2D=dataset2D_cache_path,
         cache_path3D=val.image.dataset3D_cache_path,
-        transform_cache_path=tx3Dto2D_cache_path,
         dtype=dtype,
         device=device,
         mkdir_mode=0o775,
@@ -172,7 +142,6 @@ def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs
         outputs=outputs,
         cache_path2D=dataset2D_cache_path,
         cache_path3D=val.image.dataset3D_cache_path,
-        transform_cache_path=tx3Dto2D_cache_path,
         dtype=dtype,
         device=device,
         mkdir_mode=0o775,
@@ -186,7 +155,7 @@ def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs
     dataloaders = {'trn': train_loader, 'val': val_loader}
 
     # Initialize model
-    model = val.image.UNet(len(inputs3D), len(inputs3D), len(inputs2D), len(outputs))
+    model = val.image.UNet(len(inputs3D), len(inputs2D), len(outputs))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=gamma)
 
@@ -209,12 +178,12 @@ def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs
             running_dice = 0.0
             count = 0
 
-            for inputs3D, transforms, inputs2D, labels in dataloaders[phase]:
+            for inputs3D, inputs2D, labels in dataloaders[phase]:
                 inputs3D, inputs2D, labels = inputs3D.to(device), inputs2D.to(device), labels.to(device)
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'trn'):
-                    outputs = model(inputs3D, inputs2D, transforms)
+                    outputs = model(inputs3D, inputs2D)
                     loss_bce = val.bce_loss(outputs, labels)
                     loss_dice = val.dice_loss(outputs, labels)
                     loss = wb * loss_bce + wd * loss_dice
