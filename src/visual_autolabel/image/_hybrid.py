@@ -52,7 +52,44 @@ class Image3DTo2DDataset(torch.utils.data.Dataset):
 
 
 # HCPHybridDataset ############################################################
+class HCPHybridDataset(torch.utils.data.Dataset):
+    def __init__(self,
+                 sids,
+                 inputs2D,
+                 inputs3D,
+                 outputs=('V1', 'V2', 'V3'),
+                 cache_path_2D=None,
+                 cache_path_3D=None,
+                 dtype=None,
+                 device=None,
+                 mkdir_mode=509,
+                 subindex=(slice(2, -2, None), slice(8, 264, None), slice(2, -2, None)),
+                 zoom=0.5):
+        from ..benson2025.hcp import HCPDataset
+        self.dataset3D = HCPDataset3D(
+            sids=sids,
+            inputs=inputs3D,
+            outputs=outputs,
+            cache_path=cache_path_3D,
+            dtype=dtype,
+            device=device,
+            mkdir_mode=mkdir_mode,
+            subindex=subindex,
+            zoom=zoom)
+        self.dataset2D = HCPDataset(
+            inputs2D,
+            outputs,
+            sids=sids,
+            cache_path=cache_path_2D)
+        self.sids = sids
+    def __len__(self):
+        return len(self.sids)
+    def __getitem__(self, k):
+        inputdata3D, _ = self.dataset3D[k]
+        inputdata2D, outputdata2D = self.dataset2D[k]
+        return (inputdata3D, inputdata2D, outputdata2D)
 
+"""
 class HCPHybridDataset(torch.utils.data.Dataset):
     def __init__(self,
                  sids,
@@ -94,3 +131,4 @@ class HCPHybridDataset(torch.utils.data.Dataset):
         transformdata3D = self.transform_dataset[k]
         inputdata2D, outputdata2D = self.dataset2D[k]
         return (inputdata3D, transformdata3D, inputdata2D, outputdata2D)
+"""
