@@ -334,7 +334,9 @@ class UNet2D(torch.nn.Module):
         if not self.logits:
             out = torch.sigmoid(out)
         return out
-"""
+
+
+'''
 # The Hybrid 2d/3d CNN:
 class HybridUNet(nn.Module):
     """A hybrid 2D/3D UNet CNN.
