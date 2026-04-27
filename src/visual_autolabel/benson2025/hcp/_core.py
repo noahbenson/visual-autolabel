@@ -354,12 +354,12 @@ def flatmaps(sid, datasets,
             if p not in fmap.properties}
         for ((inp,outp),ds) in datasets.items():
             if outp == 'area':
-                labelsets = {'visual_area': slice(0,3)}
+                labelsets = {'visual_sector': slice(4,7)}
             elif outp == 'ring':
                 labelsets = {'visual_ring': slice(0,5)}
             elif outp == 'sect':
                 labelsets = {
-                    'visual_area': slice(0,3),
+                    'visual_sector': slice(4, 7),
                     'visual_ring': slice(3,8)}
             else:
                 raise ValueError(f"invalid output: {output}")
