@@ -5,7 +5,7 @@
 
 # Training Feature Sets.........................................................
 # The base feature-sets we are predicting:
-vaonly_properties = ('hV4', 'VO1', 'VO2')
+vaonly_properties = ('SV1d3', 'SV1d4', 'SV1v0')
 econly_properties = ('E0', 'E1', 'E2', 'E3', 'E4')
 # The base feature-sets we use to predict the above labels:
 t1only_properties = ('x', 'y', 'z',
