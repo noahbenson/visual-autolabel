@@ -118,8 +118,8 @@ input_properties = {
 }
 output_properties = {
     'area': vaonly_properties,
-    'ring': econly_properties,
-    'sect': vaonly_properties + econly_properties,
+    # 'ring': econly_properties,
+    # 'sect': vaonly_properties + econly_properties,
 }
 # All the feature properties.
 properties = dict(input_properties, **output_properties)
@@ -359,7 +359,7 @@ def flatmaps(sid, datasets,
                 labelsets = {'visual_ring': slice(0,5)}
             elif outp == 'sect':
                 labelsets = {
-                    'visual_sector': slice(4, 7),
+                    'visual_sector': slice(4,7),
                     'visual_ring': slice(3,8)}
             else:
                 raise ValueError(f"invalid output: {output}")
