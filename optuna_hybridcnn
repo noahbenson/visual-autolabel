@@ -27,8 +27,7 @@ val.image.dataset3D_cache_path = '/mnt/data/data/volumetric/data'
 val.image.noddi_data_path = '/mnt/data/data/volumetric/NODDI'
 """
 
-
-inputs3D = ('graymask', 'T1', 'T2')
+inputs3D = ('graymask', 'T1', 'T2') #ODI, FA, FICVF
 inputs2D = ('curvature', 'convexity', 'thickness')
 outputs = ('V1', 'V2', 'V3')
 num_epochs = 30
@@ -222,7 +221,7 @@ def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs
     return best_loss
  
 study = optuna.create_study(direction='minimize')
-study.optimize(objective, n_trials=20)
+study.optimize(objective, n_trials=100)
 
 print("Best hyperparameters:", study.best_params)
 print("Best dice loss:", study.best_value)
