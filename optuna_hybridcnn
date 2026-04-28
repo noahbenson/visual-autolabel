@@ -15,10 +15,17 @@ from torch.utils.data import DataLoader
 
 import visual_autolabel as val
 
+
+dataset2D_cache_path = '/gscratch/nbenlab/data/visual-autolabel/datasets/HCP'
+val.image.dataset3D_cache_path = '/gscratch/nbenlab/data/visual-autolabel/volumetric/data'
+val.image.noddi_data_path = '/gscratch/nbenlab/data/visual-autolabel/volumetric/NODDI'
+
+"""
 dataset2D_cache_path = '/mnt/data/data/datasets/HCP'
 
 val.image.dataset3D_cache_path = '/mnt/data/data/volumetric/data'
 val.image.noddi_data_path = '/mnt/data/data/volumetric/NODDI'
+"""
 
 
 inputs3D = ('graymask', 'T1', 'T2')
@@ -209,7 +216,8 @@ def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs
 
     # Save best model
     model.load_state_dict(best_weights)
-    torch.save(model.state_dict(), Path.home() / f"hybrid_lr{lr}_gamma{gamma}_bs{batch_size}_loss{best_loss}.pt")
+    # torch.save(model.state_dict(), Path.home() / f"hybrid_lr{lr}_gamma{gamma}_bs{batch_size}_loss{best_loss}.pt")
+    torch.save(model.state_dict(), Path('/gscratch/nbenlab/data/visual-autolabel/volumetric/models') / f"hybrid_lr{lr}_gamma{gamma}_bs{batch_size}_loss{best_loss}.pt")
     print("Training complete. Best dice loss:", best_loss)
     return best_loss
  
