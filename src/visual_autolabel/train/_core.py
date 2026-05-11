@@ -656,8 +656,8 @@ def train_until(in_features, out_features, training_plan,
         with open(os.path.join(model_cache_path, "options.json"), "wt") as fl:
             part = None
             if partition is not None:
-                part = (np.asarray(partition[0]).tolist(),
-                        np.asarray(partition[1]).tolist())
+                part = (np.asarray(trndata(partition)).tolist(),
+                        np.asarray(valdata(partition)).tolist())
             opts = dict(
                 extra_opts,
                 until=until,
