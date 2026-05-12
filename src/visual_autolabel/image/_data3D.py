@@ -195,6 +195,35 @@ def subprf(sid, name):
     data[~np.isfinite(data)] = 0
     return np.array(output_im.dataobj)
 
+def subpixelindex(sid, which):
+    sub = subject(sid)
+    template_im = ny.image_clear(sub.images['T1'])
+    lh_prop = np.zeros(sub.hemis['lh'].vertex_count)
+    rh_prop = np.zeros(sub.hemis['rh'].vertex_count)
+    for (ii, h) in enumerate(('lh', 'rh')):
+        hem = sub.hemis[h]
+        fmap = ny.to_flatmap('occipital_pole', hem, radius=np.pi/2.25)
+        (fx, fy) = fmap.coordinates
+        fx = fx - np.min(fx)
+        fx = fx / np.max(fx) * 512
+        fy = fy - np.min(fy)
+        fy = fy / np.max(fy) * 512
+        if ii == 1:
+            fx = fx + 512
+        coord = fx if which == 'x' else fy
+        full_prop = np.zeros(hem.vertex_count)
+        full_prop[fmap.labels] = coord
+        if h == 'lh':
+            lh_prop = full_prop
+        else:
+            rh_prop = full_prop
+    output_im = sub.cortex_to_image(
+        {'lh': lh_prop, 'rh': rh_prop},
+        template_im)
+    data = np.array(output_im.dataobj)
+    data[~np.isfinite(data)] = 0
+    return data
+
 # This variable, subject_features, is a dictionary whose keys are the names
 # of input or output features for the CNN. A feature is any 3D image (volume)
 # that might be used for training or that might be predicted as a
@@ -214,7 +243,9 @@ subject_features = {
     'polar_angle':  lambda sid: subprf(sid, 'polar_angle'),
     'eccentricity': lambda sid: subprf(sid, 'eccentricity'),
     'radius':       lambda sid: subprf(sid, 'radius'),
-    'cod':          lambda sid: subprf(sid, 'variance_explained')
+    'cod':          lambda sid: subprf(sid, 'variance_explained'),
+    'pixel_x':      lambda sid: subpixelindex(sid, 'x'),
+    'pixel_y':      lambda sid: subpixelindex(sid, 'y')
 }
 def load_subject_data(sid, 
                       inputs=('graymask', 'T1', 'T2'),
