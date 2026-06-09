@@ -218,7 +218,7 @@ def subpixelindex(sid, which):
         else:
             rh_prop = full_prop
     output_im = sub.cortex_to_image(
-        {'lh': lh_prop, 'rh': rh_prop},
+        (lh_prop, rh_prop),
         template_im)
     data = np.array(output_im.dataobj)
     data[~np.isfinite(data)] = 0
