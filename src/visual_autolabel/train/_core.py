@@ -252,16 +252,19 @@ def train_model(model, optimizer, scheduler, dataloaders,
                     best_model_wts = copy.deepcopy(model.state_dict())
                 if metrics['dice'] < best_dice:
                     best_dice = metrics['dice']
+                    if cache_path is not None:
+                        torch.save(model.state_dict(), os.path.join(cache_path, "model%06d.pt" % epoch))
+                        torch.save(optimizer.state_dict(), os.path.join(cache_path, "optim%06d.pt" % epoch))
             allmetrics[phase] = metrics
         time_elapsed = time.time() - since
         log_epoch(allmetrics, epoch, num_epochs, lr0, time_elapsed,
                   endl=savestr, logger=logger)
         if hlines: log_epoch(Ellipsis, logger=logger, endl=endl)
-        if cache_path is not None:
-            torch.save(model.state_dict(), 
-                       os.path.join(cache_path, "model%06d.pt" % epoch))
-            torch.save(optimizer.state_dict(), 
-                       os.path.join(cache_path, "optim%06d.pt" % epoch))
+        # if cache_path is not None:
+        #     torch.save(model.state_dict(), 
+        #                os.path.join(cache_path, "model%06d.pt" % epoch))
+        #     torch.save(optimizer.state_dict(), 
+        #                os.path.join(cache_path, "optim%06d.pt" % epoch))
     if logger is not None:
         logger('Best val loss: {:4f}'.format(best_loss) + endl)
     # load best model weights
