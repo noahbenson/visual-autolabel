@@ -27,9 +27,8 @@ val.image.dataset3D_cache_path = '/mnt/data/data/volumetric/data'
 val.image.noddi_data_path = '/mnt/data/data/volumetric/NODDI'
 """
 
-inputs3D = ('graymask', 'T1', 'T2') #graymask, T1, T2, ODI, FA, FICVF, pixel_x, pixel_y
-index = ''
-noddi = ''
+inputs3D = ('graymask','T1','T2') #graymask, T1, T2, ODI, FA, FICVF, pixel_x, pixel_y
+name = 'T1T2'
 inputs2D = ('curvature', 'convexity', 'thickness')
 outputs = ('V1', 'V2', 'V3')
 num_epochs = 30
@@ -218,7 +217,7 @@ def objective(trial, inputs2D = inputs2D, inputs3D = inputs3D, outputs = outputs
     # Save best model
     model.load_state_dict(best_weights)
     # torch.save(model.state_dict(), Path.home() / f"hybrid_lr{lr}_gamma{gamma}_bs{batch_size}_loss{best_loss}_{device}.pt")
-    torch.save(model.state_dict(), Path('/gscratch/nbenlab/data/visual-autolabel/volumetric/models') / f"hybrid_lr{lr}_gamma{gamma}_bs{batch_size}_loss{best_loss}_zoom{zoom}_{noddi}_{index}.pt")
+    torch.save(model.state_dict(), Path('/gscratch/nbenlab/data/visual-autolabel/volumetric/models') / f"hybrid_lr{lr}_gamma{gamma}_bs{batch_size}_loss{best_loss}_zoom{zoom}_{name}.pt")
     print("Training complete. Best dice loss:", best_loss)
     return best_loss
  
