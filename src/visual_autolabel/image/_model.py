@@ -419,7 +419,8 @@ class HybridUNet(nn.Module):
                  feature_count_2D,
                  segment_count,
                  base_model='resnet18',
-                 logits=True):
+                 logits=True,
+                 fusion_type='avg'):
         nn.Module.__init__(self)
         self.feature_count_3D = feature_count_3D
         self.feature_count_2D = feature_count_2D
@@ -427,6 +428,11 @@ class HybridUNet(nn.Module):
         self.logits = logits
         base_model_n = int(base_model.replace('resnet', ''))
         self.base_model = f'resnet{base_model_n}'
+        self.fusion_type = fusion_type
+
+        # Sanity check
+        if self.fusion_type not in ('avg', 'max'):
+            raise ValueError(f"fusion_type parameter must be 'avg' or 'max'; got: {fusion_type}")
  
         #3D Encoder
         from . import kenshohara_resnet as resnetlib
@@ -465,12 +471,25 @@ class HybridUNet(nn.Module):
         self.enc2D_layer4 = layers2D[7]
  
         # LazyLinear fusion
+        #
+        # When zoom = 0.5, we start with images that are 128x128x128, and we end like so:
         # self._fusion_out_channels = 512
         # self._fusion_out_h = 4
         # self._fusion_out_w = 8
         # self.fusion_linear = nn.LazyLinear(512 * 4 * 8)
-        
-        # Convolutional fusion
+        # (And the 3D encoding is 512 * 4 * 4 * 4)
+        #
+        # When zoom = 1.0, we start with images that are 256x256x256, and we end like so:
+        # self._fusion_out_channels = 512
+        # self._fusion_out_h = 8
+        # self._fusion_out_w = 16
+        # self.fusion_linear = nn.LazyLinear(512 * 8 * 16)
+        # (And the 3D encoding is 512 * 8 * 8 * 8)
+        #
+        # These are too big as internal layers, so we updated the code to use either an
+        # adaptive avg layer or a max pool layer instead of a fusion linear.
+
+        # Convolutional fusion (used after the avg/max layer).
         self.fusion_conv = nn.Conv2d(1024, 512, kernel_size=1)
                      
         # Shared 2D Decoder
@@ -515,7 +534,17 @@ class HybridUNet(nn.Module):
         # fused = fused_flat.reshape(N, self._fusion_out_channels, self._fusion_out_h, self._fusion_out_w)
         
         # Convolutional fusion
-        e3_pooled = torch.nn.functional.adaptive_avg_pool3d(e3_4, (4, 8, 1)).squeeze(-1)
+        # We need to convert from the 3D shape to the 2D shape so that we can combine the tensors
+        # then run the fusion_conv layer.
+        # Regardless of the zoom, the final encoding shapes will be:
+        #   * 3d: (B, 512, N, N, N)
+        #   * 2d: (B, 512, N, 2*N)
+        shape_2d = e2_4.shape[-2:] + (1,)
+        if self.fusion_type == 'avg':
+            e3_pooled = torch.nn.functional.adaptive_avg_pool3d(e3_4, shape_2d)
+        else:
+            e3_pooled = torch.nn.functional.adaptive_max_pool3d(e3_4, shape_2d)
+        e3_pooled = e3_pooled.squeeze(-1)
         combined = torch.cat([e3_pooled, e2_4], dim=1)
         fused = self.fusion_conv(combined)
  
