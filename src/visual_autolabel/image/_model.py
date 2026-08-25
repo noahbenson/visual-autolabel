@@ -464,10 +464,14 @@ class HybridUNet(nn.Module):
         self.enc2D_layer3 = layers2D[6]
         self.enc2D_layer4 = layers2D[7]
  
-        self._fusion_out_channels = 512
-        self._fusion_out_h = 4
-        self._fusion_out_w = 8
-        self.fusion_linear = nn.LazyLinear(512 * 4 * 8)
+        # LazyLinear fusion
+        # self._fusion_out_channels = 512
+        # self._fusion_out_h = 4
+        # self._fusion_out_w = 8
+        # self.fusion_linear = nn.LazyLinear(512 * 4 * 8)
+        
+        # Convolutional fusion
+        self.fusion_conv = nn.Conv2d(1024, 512, kernel_size=1)
                      
         # Shared 2D Decoder
         self.layer0_1x1 = convrelu(64, 64, 1, 0)
@@ -502,12 +506,18 @@ class HybridUNet(nn.Module):
         e2_3 = self.enc2D_layer3(e2_2)
         e2_4 = self.enc2D_layer4(e2_3) 
         
-        N = e2_4.shape[0]
-        e2_4_flat = e2_4.flatten(start_dim=1)
-        e3_4_flat = e3_4.flatten(start_dim=1)
-        combined = torch.cat([e2_4_flat, e3_4_flat], dim=1)
-        fused_flat = self.fusion_linear(combined)
-        fused = fused_flat.reshape(N, self._fusion_out_channels, self._fusion_out_h, self._fusion_out_w)
+        # LazyLinear fusion
+        # N = e2_4.shape[0]
+        # e2_4_flat = e2_4.flatten(start_dim=1)
+        # e3_4_flat = e3_4.flatten(start_dim=1)
+        # combined = torch.cat([e2_4_flat, e3_4_flat], dim=1)
+        # fused_flat = self.fusion_linear(combined)
+        # fused = fused_flat.reshape(N, self._fusion_out_channels, self._fusion_out_h, self._fusion_out_w)
+        
+        # Convolutional fusion
+        e3_pooled = torch.nn.functional.adaptive_avg_pool3d(e3_4, (4, 8, 1)).squeeze(-1)
+        combined = torch.cat([e3_pooled, e2_4], dim=1)
+        fused = self.fusion_conv(combined)
  
         # Decode with 2D Skip Connections
         x = self.upsample(fused)
